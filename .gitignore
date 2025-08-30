@@ -1,0 +1,6 @@
+.vscode/launch.json
+deployment/build/
+node_modules/
+*.tar.gz
+*.tgz
+*.zip

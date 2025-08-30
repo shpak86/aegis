@@ -1,0 +1,11 @@
+[Unit]
+Description=Aegis bot protection service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/aegis
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target

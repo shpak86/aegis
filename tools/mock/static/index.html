@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Садовод-Профи - Сообщество садоводов и огородников</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <h1 class="header-title">
+                    <button class="header-home-btn" id="header-home-btn">
+                        🌱 Садовод-Профи
+                    </button>
+                </h1>
+                <p class="header-subtitle">Сообщество опытных садоводов и огородников</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <div class="container">
+            <!-- Главная страница -->
+            <div id="home-page" class="page">
+                <div class="loading-spinner" id="home-loading">
+                    <div class="spinner"></div>
+                    <p>Загрузка статей...</p>
+                </div>
+                <div class="error-message" id="home-error" style="display: none;">
+                    <h3>Ошибка загрузки</h3>
+                    <p>Не удалось загрузить статьи. Отображаем сохраненные данные.</p>
+                    <button class="btn btn--primary" id="retry-articles-btn">Попробовать снова</button>
+                </div>
+                <div class="articles-grid" id="articles-grid"></div>
+            </div>
+
+            <!-- Страница статьи -->
+            <div id="article-page" class="page" style="display: none;">
+                <button class="btn btn--outline back-btn" id="back-to-home-btn">
+                    ← Назад к статьям
+                </button>
+                
+                <div class="loading-spinner" id="article-loading">
+                    <div class="spinner"></div>
+                    <p>Загрузка статьи...</p>
+                </div>
+                
+                <div class="error-message" id="article-error" style="display: none;">
+                    <h3>Ошибка загрузки статьи</h3>
+                    <p>Не удалось загрузить статью.</p>
+                    <button class="btn btn--primary" id="retry-article-btn">Попробовать снова</button>
+                </div>
+
+                <article class="article-full" id="article-content" style="display: none;">
+                    <header class="article-header">
+                        <h1 class="article-title"></h1>
+                        <div class="article-meta">
+                            <span class="article-author"></span>
+                            <span class="article-date"></span>
+                        </div>
+                        <div class="article-actions">
+                            <button class="btn btn--primary like-btn" id="article-like-btn" onclick="handleArticleLike(this.dataset.articleId, this)">
+                                <span class="like-icon">👍</span>
+                                <span class="like-count">0</span>
+                            </button>
+                        </div>
+                    </header>
+                    
+                    <div class="article-content"></div>
+                    
+                    <section class="comments-section">
+                        <h3 class="comments-header">
+                            Комментарии (<span class="comments-count">0</span>)
+                        </h3>
+                        
+                        <form class="comment-form" id="comment-form">
+                            <h4>Добавить комментарий</h4>
+                            <div class="form-group">
+                                <label class="form-label" for="comment-author">Ваше имя</label>
+                                <input type="text" id="comment-author" class="form-control" required placeholder="Введите ваше имя">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="comment-content">Комментарий</label>
+                                <textarea id="comment-content" class="form-control" rows="4" required placeholder="Поделитесь своим опытом или задайте вопрос..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn--primary">Добавить комментарий</button>
+                        </form>
+                        
+                        <div class="comments-list" id="comments-list"></div>
+                    </section>
+                </article>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Садовод-Профи. Все права защищены. v1.0</p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
