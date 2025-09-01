@@ -1,13 +1,11 @@
 package main
 
 import (
-	"aegis/internal/api"
 	"aegis/internal/config"
-	"aegis/internal/service"
+	"aegis/internal/server"
 	"aegis/internal/usecase"
 	"aegis/internal/version"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -19,48 +17,31 @@ import (
 	"time"
 )
 
-func prepareConfiguration() (cfg config.Config, err error) {
-	configPath := "/etc/aegis/config.json"
-	content, err := os.ReadFile(configPath)
-	if err != nil {
-		return
-	}
-	err = json.Unmarshal(content, &cfg)
-	return
-}
-
 func prepareLogger(level string) {
 	opts := slog.HandlerOptions{}
 	switch level {
-	case "error":
+	case "ERROR":
 		opts.Level = slog.LevelError
-	case "warn":
+	case "WARNING":
 		opts.Level = slog.LevelWarn
-	case "debug":
+	case "INFO":
+		opts.Level = slog.LevelInfo
+	case "DEBUG":
 		opts.Level = slog.LevelDebug
 	default:
-		opts.Level = slog.LevelInfo
+		slog.Error("Failed to prepare logger", slog.String("error", fmt.Sprintf("unknown level %s", level)))
+		os.Exit(1)
 	}
-	appLogger := slog.NewJSONHandler(os.Stderr, &opts)
-	slog.SetDefault(slog.New(appLogger))
-}
-
-func prepareChainer(ctx context.Context, cfg config.Config) (chainer *service.Chainer) {
-	protections := []usecase.Protection{}
-	for _, configProtection := range cfg.Protections {
-		protections = append(protections, usecase.Protection{Path: configProtection.Path, Method: configProtection.Method, Limit: configProtection.Limit})
-	}
-
-	chainer = service.BasicAntibotChainer(ctx, cfg.Token.Complexity, protections)
-	return
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &opts)))
 }
 
 func main() {
 	var err error
 
-	versionProvider := version.NewVersionProvider("0.1.0")
+	versionProvider := version.NewVersionProvider("0.1.1")
 
 	versionFlag := flag.Bool("version", false, "Print Aegis version")
+	configPath := flag.String("config", "/etc/aegis/config.json", "Configuration path")
 	flag.Parse()
 	if *versionFlag {
 		fmt.Printf("Aegis %s", versionProvider.String())
@@ -68,7 +49,7 @@ func main() {
 	}
 
 	var cfg config.Config
-	if cfg, err = prepareConfiguration(); err != nil {
+	if err = cfg.Load(*configPath); err != nil {
 		slog.Error("Failed to prepare app config", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
@@ -77,13 +58,25 @@ func main() {
 	defer cancel()
 
 	prepareLogger(cfg.Logger.Level)
-	chainer := prepareChainer(appCtx, cfg)
+	protections := make([]usecase.Protection, len(cfg.Protections))
+	for i := range cfg.Protections {
+		protections[i] = usecase.Protection(cfg.Protections[i])
+	}
+
+	slog.Info("Starting Aegis server")
+
+	server := server.NewServer(
+		appCtx,
+		cfg.Address,
+		protections,
+		cfg.Verification.Type,
+		cfg.Verification.Complexity,
+	)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	serverError := make(chan error, 1)
 
-	server := api.NewApiServer(cfg.Address, chainer)
 	go func() {
 		slog.Debug("API address", slog.String("address", cfg.Address))
 		err = server.Serve()

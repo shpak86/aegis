@@ -1,7 +1,7 @@
-package api
+package server
 
 import (
-	"aegis/internal/service"
+	"aegis/internal/middleware"
 	"aegis/internal/usecase"
 	"context"
 	"encoding/json"
@@ -22,11 +22,11 @@ const (
 // API server
 type ApiServer struct {
 	address string
-	chainer *service.Chainer
+	chainer *middleware.Chainer
 	server  *http.Server
 }
 
-func NewApiServer(address string, chainer *service.Chainer) *ApiServer {
+func NewApiServer(address string, chainer *middleware.Chainer) *ApiServer {
 	return &ApiServer{address: address, chainer: chainer}
 }
 
@@ -55,15 +55,15 @@ func (s *ApiServer) Serve() error {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		s.chainer.Head().Handle(&request, NewApiResponseSender(w, metricAntibotResponse))
+		s.chainer.Execute(&request, NewApiResponseSender(w, metricAntibotResponse))
 		slog.Debug("Handle", slog.String("request", fmt.Sprintf("%+v", request)))
 	})
 	s.server = &http.Server{
 		Addr:         s.address,
 		Handler:      mux,
-		ReadTimeout:  2 * time.Second,  // Время ожидания чтения запроса
-		WriteTimeout: 2 * time.Second,  // Время ожидания записи ответа
-		IdleTimeout:  20 * time.Second, // Время ожидания между запросами
+		ReadTimeout:  2 * time.Second,
+		WriteTimeout: 2 * time.Second,
+		IdleTimeout:  20 * time.Second,
 	}
 	return s.server.ListenAndServe()
 }

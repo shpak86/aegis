@@ -1,4 +1,4 @@
-package pow
+package token_manager
 
 import (
 	"aegis/internal/usecase"
@@ -38,7 +38,7 @@ type challenge struct {
 	challenge []byte
 }
 
-type PowTokenManager struct {
+type ShaChallengeTokenManager struct {
 	complexity int
 	tokens     map[string]*token
 	challenges map[string]*challenge
@@ -46,12 +46,12 @@ type PowTokenManager struct {
 	tmu        sync.RWMutex
 }
 
-func (m *PowTokenManager) GetRequestToken(request *usecase.Request) (token string, exists bool) {
+func (m *ShaChallengeTokenManager) GetRequestToken(request *usecase.Request) (token string, exists bool) {
 	token, exists = request.Cookies[tokenCookie]
 	return
 }
 
-func (m *PowTokenManager) GetChallenge(fp *usecase.Fingerprint) []byte {
+func (m *ShaChallengeTokenManager) GetChallenge(fp *usecase.Fingerprint) []byte {
 	c := challenge{clientFp: fp, time: time.Now(), challenge: make([]byte, m.complexity)}
 	rand.Read(c.challenge)
 	m.cmu.Lock()
@@ -62,7 +62,7 @@ func (m *PowTokenManager) GetChallenge(fp *usecase.Fingerprint) []byte {
 
 // Checks the solution for the specified fingerprint. If the soluiton is correct the new token will be returned.
 // If solution is incorrect or some internal error occured, false will be returned.
-func (m *PowTokenManager) GetToken(fp *usecase.Fingerprint, challenge, solution []byte) (t string, err error) {
+func (m *ShaChallengeTokenManager) GetToken(fp *usecase.Fingerprint, challenge, solution []byte) (t string, err error) {
 	m.cmu.Lock()
 	defer m.cmu.Unlock()
 	challengeString := string(challenge)
@@ -93,7 +93,7 @@ func (m *PowTokenManager) GetToken(fp *usecase.Fingerprint, challenge, solution 
 }
 
 // Validates token and returns true if the token is valid.
-func (m *PowTokenManager) Validate(clientFp *usecase.Fingerprint, token string) bool {
+func (m *ShaChallengeTokenManager) Validate(clientFp *usecase.Fingerprint, token string) bool {
 	m.tmu.RLock()
 	defer m.tmu.RUnlock()
 	storedToken, exists := m.tokens[token]
@@ -107,7 +107,7 @@ func (m *PowTokenManager) Validate(clientFp *usecase.Fingerprint, token string) 
 }
 
 // Revoke token if it exists. Returns true is token exists ant was revoked.
-func (m *PowTokenManager) Revoke(token string) bool {
+func (m *ShaChallengeTokenManager) Revoke(token string) bool {
 	m.tmu.Lock()
 	defer m.tmu.Unlock()
 	_, revoked := m.tokens[token]
@@ -116,12 +116,12 @@ func (m *PowTokenManager) Revoke(token string) bool {
 }
 
 // Get complexity returns the level of challange complexity. 1 - the easiest, 4 - most complex
-func (m *PowTokenManager) GetComplexity() int {
+func (m *ShaChallengeTokenManager) GetComplexity() int {
 	return m.complexity
 }
 
-func NewPowTokenManager(complexity int) *PowTokenManager {
-	tm := PowTokenManager{
+func NewShaChallengeTokenManager(complexity int) *ShaChallengeTokenManager {
+	tm := ShaChallengeTokenManager{
 		complexity: complexity,
 		tokens:     make(map[string]*token),
 		challenges: make(map[string]*challenge),

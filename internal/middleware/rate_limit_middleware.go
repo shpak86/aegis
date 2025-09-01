@@ -1,10 +1,9 @@
-package service
+package middleware
 
 import (
 	"aegis/internal/limiter"
 	"aegis/internal/usecase"
 	"context"
-	"log/slog"
 )
 
 // Counts requests to the specified paths.
@@ -16,15 +15,17 @@ type RateLimitMiddleware struct {
 }
 
 func (m *RateLimitMiddleware) Handle(request *usecase.Request, response usecase.ResponseSender) (err error) {
-	token, _ := m.tokenManager.GetRequestToken(request)
+	token, exists := m.tokenManager.GetRequestToken(request)
+	if !exists {
+		response.Send(&usecase.ResponseChallenge)
+		return
+	}
+	// Just counting, revoking is inside rateLimiter
 	m.rateLimiter.Count(token, request.Url, request.Method)
 	if m.next != nil {
 		m.next.Handle(request, response)
 	} else {
-		response.Send(&usecase.Response{
-			Code: 0,
-			Body: "",
-		})
+		response.Send(&usecase.ResponseContinue)
 	}
 	return
 }
@@ -41,10 +42,5 @@ func NewRateLimitMiddleware(
 		rateLimiter:  rateLimiter,
 		tokenManager: tokenManager,
 	}
-
-	go m.rateLimiter.Serve()
-	slog.Debug("RateLimitMiddleware",
-		slog.String("protecting", "true"),
-	)
 	return &m
 }

@@ -1,5 +1,7 @@
 package usecase
 
+import "net/http"
+
 type Meta struct {
 	Fingerprint Fingerprint
 }
@@ -21,8 +23,8 @@ type Response struct {
 }
 
 type Endpoint struct {
-	Path   string
-	Method string
+	Path   string `json:"path"`
+	Method string `json:"method"`
 }
 
 type Protection struct {
@@ -30,3 +32,11 @@ type Protection struct {
 	Method string `json:"method"`
 	Limit  uint32 `json:"rps"`
 }
+
+var ResponseChallenge = Response{
+	Code:    http.StatusFound,
+	Headers: map[string]string{"Location": "/aegis/challenge/index.html"},
+	Body:    "Forbidden",
+}
+
+var ResponseContinue = Response{}

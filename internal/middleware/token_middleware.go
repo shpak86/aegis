@@ -1,7 +1,7 @@
-package service
+package middleware
 
 import (
-	"aegis/internal/pow"
+	"aegis/internal/token_manager"
 	"aegis/internal/usecase"
 	"context"
 	"encoding/base64"
@@ -13,23 +13,27 @@ import (
 )
 
 const (
+	endpointToken          = "/aegis/token"
+	endpointChallenge      = "/aegis/challenge/index.html"
 	MetrcTokenRequest      = "token_request"
 	MetricChallengeRequest = "challenge_request"
+	methodGet              = "GET"
+	methodPost             = "POST"
 )
 
-// Serves /token endpoint and allows to get challenge and antibot token.
-type PowTokenMiddleware struct {
+// Serves /aegis/token endpoint and allows to get challenge and antibot token.
+type TokenMiddleware struct {
 	ctx                    context.Context
 	next                   usecase.Middleware
-	tokenManager           *pow.PowTokenManager
+	tokenManager           *token_manager.ShaChallengeTokenManager
 	fingerprinter          usecase.FingerprintCalculator
 	metricTokenRequest     *prometheus.CounterVec
 	metricChallengeRequest *prometheus.CounterVec
 }
 
-func (m *PowTokenMiddleware) Handle(request *usecase.Request, response usecase.ResponseSender) (err error) {
+func (m *TokenMiddleware) Handle(request *usecase.Request, response usecase.ResponseSender) (err error) {
 	request.Metadata.Fingerprint = m.fingerprinter.Calculate(request)
-	if request.Url == "/aegis/token" && strings.EqualFold(request.Method, "GET") {
+	if request.Url == endpointToken && strings.EqualFold(request.Method, methodGet) {
 		challenge := m.tokenManager.GetChallenge(&request.Metadata.Fingerprint)
 		body := base64.StdEncoding.EncodeToString(challenge)
 		response.Send(&usecase.Response{
@@ -39,10 +43,10 @@ func (m *PowTokenMiddleware) Handle(request *usecase.Request, response usecase.R
 		m.metricChallengeRequest.WithLabelValues("pow").Add(1)
 		slog.Debug("Challenge request",
 			slog.String("address", request.ClientAddress),
-			slog.String("fp", request.Metadata.Fingerprint.String()),
+			slog.String("fp", request.Metadata.Fingerprint.Prefix()),
 			slog.String("body", body),
 		)
-	} else if request.Url == "/aegis/token" && strings.EqualFold(request.Method, "POST") {
+	} else if request.Url == endpointToken && strings.EqualFold(request.Method, methodPost) {
 		var payload []byte
 		payload, err = base64.StdEncoding.DecodeString(request.Body)
 		if err != nil {
@@ -53,7 +57,7 @@ func (m *PowTokenMiddleware) Handle(request *usecase.Request, response usecase.R
 			m.metricTokenRequest.WithLabelValues("pow", "unprocessable").Add(1)
 			slog.Debug("Unprocessable challenge solution",
 				slog.String("address", request.ClientAddress),
-				slog.String("fp", request.Metadata.Fingerprint.String()),
+				slog.String("fp", request.Metadata.Fingerprint.Prefix()),
 				slog.String("solution", request.Body),
 			)
 			return
@@ -67,7 +71,7 @@ func (m *PowTokenMiddleware) Handle(request *usecase.Request, response usecase.R
 			m.metricTokenRequest.WithLabelValues("pow", "wrong").Add(1)
 			slog.Debug("Wrong challenge solution",
 				slog.String("address", request.ClientAddress),
-				slog.String("fp", request.Metadata.Fingerprint.String()),
+				slog.String("fp", request.Metadata.Fingerprint.Prefix()),
 				slog.String("solution", request.Body),
 			)
 			return err
@@ -79,16 +83,20 @@ func (m *PowTokenMiddleware) Handle(request *usecase.Request, response usecase.R
 		m.metricTokenRequest.WithLabelValues("pow", "success").Add(1)
 		slog.Debug("Token is issued",
 			slog.String("address", request.ClientAddress),
-			slog.String("fp", request.Metadata.Fingerprint.String()),
+			slog.String("fp", request.Metadata.Fingerprint.Prefix()),
 			slog.String("token", antibotToken),
 		)
-	} else if (request.Url == "/aegis/challenge/index.html") && strings.EqualFold(request.Method, "GET") {
-		headers := map[string]string{}
-		headers["Content-Type"] = "text/html; charset=utf-8"
+	} else if (request.Url == endpointChallenge) && strings.EqualFold(request.Method, methodGet) {
+		headers := map[string]string{
+			"Content-Type":           "text/html; charset=utf-8",
+			"Cache-Control":          "no-cache, no-store, must-revalidate",
+			"X-Frame-Options":        "DENY",
+			"X-Content-Type-Options": "nosniff",
+		}
 		response.Send(&usecase.Response{
 			Code:    http.StatusOK,
 			Headers: headers,
-			Body:    pow.IndexHtml,
+			Body:    token_manager.ShaChallengeIndex,
 		})
 	} else {
 		m.next.Handle(request, response)
@@ -96,13 +104,13 @@ func (m *PowTokenMiddleware) Handle(request *usecase.Request, response usecase.R
 	return
 }
 
-func NewPowTokenMiddleware(
+func NewTokenMiddleware(
 	ctx context.Context,
 	next usecase.Middleware,
 	fingerprinter usecase.FingerprintCalculator,
-	tokenManager *pow.PowTokenManager,
-) *PowTokenMiddleware {
-	m := PowTokenMiddleware{
+	tokenManager *token_manager.ShaChallengeTokenManager,
+) *TokenMiddleware {
+	m := TokenMiddleware{
 		ctx:           ctx,
 		tokenManager:  tokenManager,
 		fingerprinter: fingerprinter,
@@ -122,6 +130,6 @@ func NewPowTokenMiddleware(
 	)
 	prometheus.MustRegister(m.metricTokenRequest)
 	prometheus.MustRegister(m.metricChallengeRequest)
-	slog.Debug("PowTokenMiddleware", slog.Int("complexity", tokenManager.GetComplexity()))
+	slog.Debug("TokenMiddleware", slog.Int("complexity", tokenManager.GetComplexity()))
 	return &m
 }

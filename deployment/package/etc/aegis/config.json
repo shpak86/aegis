@@ -1,16 +1,15 @@
 {
-    "address": ":6996",
     "logger": {
         "level": "info"
     },
-    "token": {
-        "complexity": 2
+    "verification": {
+        "type": "js-challenge",
+        "complexity": "medium"
     },
     "protections": [
         {
-            "path": "^/index.html$",
-            "method": "GET",
-            "rps": 10
+            "path": "^/(index.html)?$",
+            "method": "GET"
         }
     ]
 }

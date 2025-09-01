@@ -33,7 +33,7 @@ func (ahf *AddressHeadersFingerprinter) Calculate(r *usecase.Request) (fp usecas
 		b.WriteString(".")
 	}
 	if _, exists := r.Headers["Accept"]; exists {
-		b.WriteString("z")
+		b.WriteString("AC")
 	} else {
 		b.WriteString(".")
 	}
@@ -48,17 +48,17 @@ func (ahf *AddressHeadersFingerprinter) Calculate(r *usecase.Request) (fp usecas
 		b.WriteString(".")
 	}
 	if _, exists := r.Headers["Sec-Fetch-Dest"]; exists {
-		b.WriteString("z")
+		b.WriteString("SFD")
 	} else {
 		b.WriteString(".")
 	}
 	if _, exists := r.Headers["Sec-Fetch-Mode"]; exists {
-		b.WriteString("z")
+		b.WriteString("SFM")
 	} else {
 		b.WriteString(".")
 	}
 	if _, exists := r.Headers["Sec-Fetch-Site"]; exists {
-		b.WriteString("z")
+		b.WriteString("SFS")
 	} else {
 		b.WriteString(".")
 	}

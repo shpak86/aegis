@@ -1,47 +1,86 @@
-#! /bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
 
-# sudo dnf -y install gcc
-# sudo dnf -y install pcre-devel zlib-devel openssl-devel
+# Default versions can be set via environment variables
+NGINX_VERSION="1.28.0"
+AEGIS_VERSION="0.1.1"
+MODULE_DIR_NAME="ngx_aegis_module"
+BUILD_DIR="$(pwd)/build"
+TEMP_DIR="$(pwd)/temp"
+RELEASE_DIR_NAME="aegis_nginx_${NGINX_VERSION}-${AEGIS_VERSION}"
 
-NGINX_VERSION=${NGINX_VERSION:=1.28.0}
-NGINX_MODULE_DIR=ngx_aegis_module
-AEGIS_VERSION=${AEGIS_VERSION:=0.0.0}
+# List of required utilities
+REQUIRED_CMDS=(curl tar gcc make go)
 
-# Prepare environment
-CWD=$(pwd)
-rm -rf temp
-mkdir temp
-rm -rf build/${NGINX_MODULE_DIR}-$NGINX_VERSION
-mkdir -p build/${NGINX_MODULE_DIR}-$NGINX_VERSION
-rm -rf build/aegis
-mkdir -p build/aegis
+function usage() {
+  cat <<EOF
+Usage: $0 [options]
+  -n VERSION   NGINX version
+  -a VERSION   AEGIS version
+  -h           Show this message and exit
+EOF
+  exit 1
+}
 
-# Download and extract nginx
-curl -o nginx-${NGINX_VERSION}.tar.gz -L https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz
-tar -C temp -xf nginx-${NGINX_VERSION}.tar.gz
-mkdir temp/nginx-${NGINX_VERSION}/${NGINX_MODULE_DIR}
-cp ../ngx_aegis_module/src/* temp/nginx-${NGINX_VERSION}/${NGINX_MODULE_DIR}/
+# Parse options
+while getopts "n:a:h" opt; do
+  case "$opt" in
+    n) NGINX_VERSION="$OPTARG" ;;
+    a) AEGIS_VERSION="$OPTARG" ;;
+    h) usage ;;
+    *) usage ;;
+  esac
+done
 
-# Build ngx_aegis_module
-cd temp/nginx-${NGINX_VERSION}
-./configure --add-dynamic-module=./ngx_aegis_module --with-compat
+# Check for required utilities
+for cmd in "${REQUIRED_CMDS[@]}"; do
+  if ! command -v "$cmd" &>/dev/null; then
+    echo "Error: utility '$cmd' not found. Please install it and try again." >&2
+    exit 2
+  fi
+done
+
+echo "Building ngx_aegis_module (NGINX $NGINX_VERSION) and aegis ($AEGIS_VERSION)"
+
+# Prepare directories
+rm -rf "$TEMP_DIR" "$BUILD_DIR"
+mkdir -p "$TEMP_DIR" "$BUILD_DIR/${MODULE_DIR_NAME}-$NGINX_VERSION" "$BUILD_DIR/aegis"
+
+# Download and extract NGINX
+NGINX_TAR="nginx-${NGINX_VERSION}.tar.gz"
+NGINX_URL="https://nginx.org/download/${NGINX_TAR}"
+echo "Downloading $NGINX_URL"
+curl -fSL "$NGINX_URL" -o "$TEMP_DIR/$NGINX_TAR"
+echo "Extracting $NGINX_TAR"
+tar -xzf "$TEMP_DIR/$NGINX_TAR" -C "$TEMP_DIR"
+
+# Copy module files
+echo "Copying $MODULE_DIR_NAME module"
+cp -r "../${MODULE_DIR_NAME}/src" "$TEMP_DIR/nginx-${NGINX_VERSION}/${MODULE_DIR_NAME}"
+
+# Build dynamic module
+pushd "$TEMP_DIR/nginx-${NGINX_VERSION}" >/dev/null
+./configure --add-dynamic-module=./${MODULE_DIR_NAME} --with-compat
 make modules
-cp objs/ngx_aegis_module.so ${CWD}/build/${NGINX_MODULE_DIR}-$NGINX_VERSION/
+cp objs/${MODULE_DIR_NAME}.so "$BUILD_DIR/${MODULE_DIR_NAME}-$NGINX_VERSION/"
+popd >/dev/null
 
-# Build aegis
-cd $CWD/..
-go build -o ${CWD}/build/aegis/aegis cmd/main.go
+# Build aegis binary
+echo "Building aegis"
+pushd .. >/dev/null
+go build -o "${BUILD_DIR}/aegis/aegis" cmd/main.go
+popd >/dev/null
 
-# Build archive
-cd $CWD
-RELEADE_DIR=build/aegis-$AEGIS_VERSION.$NGINX_VERSION
-mkdir -p $RELEADE_DIR/usr/bin
-mkdir -p $RELEADE_DIR/usr/lib64/modules
-cp -r package/etc $RELEADE_DIR
-cp build/aegis/aegis $RELEADE_DIR/usr/bin/aegis
-cp build/ngx_aegis_module-$NGINX_VERSION/ngx_aegis_module.so $RELEADE_DIR/usr/lib64/modules/ngx_aegis_module.so
+# Prepare release archive
+echo "Creating release package $RELEASE_DIR_NAME"
+RELEASE_ROOT="$BUILD_DIR/$RELEASE_DIR_NAME"
+mkdir -p "$RELEASE_ROOT/usr/bin" "$RELEASE_ROOT/usr/share/nginx/modules"
+cp -r package/etc "$RELEASE_ROOT/etc"
+cp "$BUILD_DIR/aegis/aegis" "$RELEASE_ROOT/usr/bin/"
+cp "$BUILD_DIR/${MODULE_DIR_NAME}-$NGINX_VERSION/${MODULE_DIR_NAME}.so" "$RELEASE_ROOT/usr/share/nginx/modules/"
+pushd "$RELEASE_ROOT" >/dev/null
+tar -czf "../${RELEASE_DIR_NAME}.tar.gz" .
+popd >/dev/null
 
-cd $RELEADE_DIR
-tar -czf ../aegis_nginx_$NGINX_VERSION-$AEGIS_VERSION.tar.gz *
-
-rm -rf ${CWD}/temp
+echo "Build completed: $BUILD_DIR/${RELEASE_DIR_NAME}.tar.gz"

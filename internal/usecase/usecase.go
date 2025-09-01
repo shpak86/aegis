@@ -22,12 +22,6 @@ type Middleware interface {
 	Handle(request *Request, response ResponseSender) error
 }
 
-type Limit struct {
-	Path   string
-	Method string
-	Limit  uint32
-}
-
 const (
 	ADDRESS_HEADERS_FP = iota
 )
@@ -41,6 +35,11 @@ type Fingerprint struct {
 // String returns a string representation of the fingerprint
 func (fp Fingerprint) String() string {
 	return fmt.Sprintf("%x", fp.Value)
+}
+
+// String returns prefix of the string representation of the fingerprint
+func (fp Fingerprint) Prefix() string {
+	return fmt.Sprintf("%x", fp.Value)[:8]
 }
 
 // Calculates a fingerprint

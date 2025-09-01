@@ -1,4 +1,4 @@
-package service
+package middleware
 
 import (
 	"aegis/internal/remap"
@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"regexp"
 	"strings"
 
@@ -14,31 +13,27 @@ import (
 )
 
 const (
-	MetricTokenValidation = "token_validation"
+	MetricEndpointProtection = "endpoint_protection"
 )
 
 // Validates antibot token for specified paths and restricts access to these paths for clients without the token.
-type TokenValidationMiddleware struct {
-	ctx                   context.Context
-	next                  usecase.Middleware
-	tokenManager          usecase.TokenManager
-	fingerprinter         usecase.FingerprintCalculator
-	protectingEndpoints   map[string]*remap.ReMap[string]
-	metricTokenValidation *prometheus.CounterVec
+type EndpointProtectionMiddleware struct {
+	ctx                      context.Context
+	next                     usecase.Middleware
+	tokenManager             usecase.TokenManager
+	fingerprinter            usecase.FingerprintCalculator
+	protectingEndpoints      map[string]*remap.ReMap[string]
+	metricEndpointProtection *prometheus.CounterVec
 }
 
-func (m *TokenValidationMiddleware) Handle(request *usecase.Request, response usecase.ResponseSender) (err error) {
+func (m *EndpointProtectionMiddleware) Handle(request *usecase.Request, response usecase.ResponseSender) (err error) {
 	method := strings.ToUpper(request.Method)
 	var isProtected bool
 	if protectingEndpoints, found := m.protectingEndpoints[method]; found {
-
 		_, isProtected = protectingEndpoints.Find(request.Url)
 	}
 	if !isProtected {
-		response.Send(&usecase.Response{
-			Code: 0,
-			Body: "",
-		})
+		response.Send(&usecase.ResponseContinue)
 		slog.Debug("Unprotected",
 			slog.String("address", request.ClientAddress),
 			slog.String("path", request.Url),
@@ -48,12 +43,8 @@ func (m *TokenValidationMiddleware) Handle(request *usecase.Request, response us
 	}
 	token, exists := m.tokenManager.GetRequestToken(request)
 	if !exists {
-		response.Send(&usecase.Response{
-			Code:    http.StatusFound,
-			Headers: map[string]string{"Location": "/aegis/challenge/index.html"},
-			Body:    "Forbidden",
-		})
-		m.metricTokenValidation.WithLabelValues("forbidden", request.Url).Inc()
+		response.Send(&usecase.ResponseChallenge)
+		m.metricEndpointProtection.WithLabelValues("forbidden", request.Url).Inc()
 		slog.Debug("Forbidden. Token is absent.",
 			slog.String("address", request.ClientAddress),
 			slog.String("path", request.Url),
@@ -63,34 +54,30 @@ func (m *TokenValidationMiddleware) Handle(request *usecase.Request, response us
 	}
 	isValidToken := m.tokenManager.Validate(&request.Metadata.Fingerprint, token)
 	if !isValidToken {
-		response.Send(&usecase.Response{
-			Code:    http.StatusFound,
-			Headers: map[string]string{"Location": "/aegis/challenge/index.html"},
-			Body:    "Forbidden",
-		})
-		m.metricTokenValidation.WithLabelValues("forbidden", request.Url).Inc()
+		response.Send(&usecase.ResponseChallenge)
+		m.metricEndpointProtection.WithLabelValues("forbidden", request.Url).Inc()
 		slog.Debug("Forbidden. Invalid token.",
 			slog.String("address", request.ClientAddress),
-			slog.String("fp", request.Metadata.Fingerprint.String()),
+			slog.String("fp", request.Metadata.Fingerprint.Prefix()),
 			slog.String("token", token),
 			slog.String("path", request.Url),
 			slog.String("method", method),
 		)
 		return
 	}
-	m.metricTokenValidation.WithLabelValues("success", request.Url).Inc()
+	m.metricEndpointProtection.WithLabelValues("success", request.Url).Inc()
 	m.next.Handle(request, response)
 	return
 }
 
-func NewTokenValidationMiddleware(
+func NewEndpointProtectionMiddleware(
 	ctx context.Context,
 	next usecase.Middleware,
 	tokenManager usecase.TokenManager,
 	fingerprinter usecase.FingerprintCalculator,
-	protectingEndpoints []usecase.Endpoint,
-) *TokenValidationMiddleware {
-	m := TokenValidationMiddleware{
+	protections []usecase.Protection,
+) *EndpointProtectionMiddleware {
+	m := EndpointProtectionMiddleware{
 		ctx:                 ctx,
 		next:                next,
 		tokenManager:        tokenManager,
@@ -98,13 +85,13 @@ func NewTokenValidationMiddleware(
 		protectingEndpoints: map[string]*remap.ReMap[string]{},
 	}
 
-	for _, endpoint := range protectingEndpoints {
-		method := strings.ToUpper(endpoint.Method)
-		endpointRe, err := regexp.Compile(endpoint.Path)
+	for _, protection := range protections {
+		method := strings.ToUpper(protection.Method) //todo
+		endpointRe, err := regexp.Compile(protection.Path)
 		if err != nil {
 			slog.Error("Failed to compile regexp",
 				slog.String("method", method),
-				slog.String("path", endpoint.Path),
+				slog.String("path", protection.Path),
 				slog.String("error", err.Error()),
 			)
 			continue
@@ -114,17 +101,17 @@ func NewTokenValidationMiddleware(
 			protectingEndpoints = remap.NewReMap[string]()
 			m.protectingEndpoints[method] = protectingEndpoints
 		}
-		protectingEndpoints.Put(endpointRe, endpoint.Path)
+		protectingEndpoints.Put(endpointRe, protection.Path)
 	}
-	m.metricTokenValidation = prometheus.NewCounterVec(
+	m.metricEndpointProtection = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: MetricTokenValidation,
+			Name: MetricEndpointProtection,
 		},
 		[]string{"result", "path"},
 	)
-	prometheus.MustRegister(m.metricTokenValidation)
-	slog.Debug("TokenValidationMiddleware",
-		slog.String("protecting", fmt.Sprintf("%v", protectingEndpoints)),
+	prometheus.MustRegister(m.metricEndpointProtection)
+	slog.Debug("EndpointProtectionMiddleware",
+		slog.String("protecting", fmt.Sprintf("%v", protections)),
 	)
 	return &m
 }

@@ -125,37 +125,36 @@ Aegis should be configured in `/etc/aegis/config.json`.
 
 #### Main Parameters
 
-- **`address`** - allows you to change the address which antibot is serving
-- **`logger.level`** - configures verbosity of the logger. Possible values: `DEBUG`, `INFO`, `WARN`, `ERROR`
-- **`token.complexity`** - complexity of the JavaScript challenge:
-  - `1` - easy (less than 1 second to solve)
-  - `2` - optimal (1-5 seconds)
-  - `3` - hard (10-60 seconds to solve)
-  - `4` - unable to solve :)
+- **`address`** - allows you to change the address which antibot is serving. Bu default address is **localhost:6996**
+- **`logger.level`** - configures verbosity of the logger. Possible values: `DEBUG`, `INFO`, `WARNING`, `ERROR`
+- **`verification.type`** - verification method
+- **`verification.complexity`** - complexity of the JavaScript challenge:
+  - `easy` - easy (less than 1 second to solve)
+  - `medium` - optimal (1-5 seconds)
+  - `hard` - hard (10-60 seconds to solve)
 
 #### Protections
 
 The list of protection definitions with fields:
 - **`path`** - request path RegEx ⚠️ **Note:** Since the path is a regular expression, specifying `/user` will protect all paths containing this expression: `/user`, `/user/profile`, `/user/10042/profile`, `/some/other/user/profile`, `/username`, etc. Be careful and specify the most precise expressions possible.
 - **`method`** - request method (`GET`, `POST`, etc.)
-- **`rps`** - RPS limit for the client
+- **`rps`** - RPS limit for the client. If `rps` is not set or 0, protection will grant requests only from clients with valid cookie `AB135`.
 
 #### Configuration Example
 
 ```json
 {
-  "address": ":6996",
   "logger": {
-    "level": "debug"
+    "level": "info"
   },
-  "token": {
-    "complexity": 2
+  "verification": {
+      "type": "js-challenge",
+      "complexity": "medium"
   },
   "protections": [
     {
       "path": "/index.html$",
-      "method": "GET",
-      "rps": 1000000
+      "method": "GET"
     },
     {
       "path": "^/api/",
@@ -187,7 +186,7 @@ In this example:
 Load aegis module with the `load_module` directive:
 
 ```nginx
-load_module /usr/lib64/modules/ngx_aegis_module.so;
+load_module /usr/share/nginx/modules/ngx_aegis_module.so;
 ```
 
 Aegis protects only endpoints with the `aegis_enable` directive, so you need to add this directive to all endpoints you want to protect.

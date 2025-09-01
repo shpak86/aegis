@@ -45,6 +45,9 @@ func (r *ReMap[T]) Delete(k *regexp.Regexp) {
 	delete(r.kv, k)
 }
 
+// NewReMap creates a new empty ReMap[T] instance, initializing an internal map
+// that associates regular expression patterns (*regexp.Regexp) with values of type T.
+// The map is initially empty and ready for insertion of regex-to-value pairs.
 func NewReMap[T any]() *ReMap[T] {
 	return &ReMap[T]{kv: make(map[*regexp.Regexp]T)}
 }

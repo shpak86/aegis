@@ -18,14 +18,14 @@ const (
 	MetricRevokeToken = "revoke_token"
 )
 
-// Container of counters for the specified paths
+// limitedCounter tracks request counts for clients with a configured rate limit.
 type limitedCounter struct {
 	limit   uint32
 	counter map[string]*atomic.Uint32
 	mu      sync.RWMutex
 }
 
-// Increments token for the specified path
+// Increment atomically increases the request count for the specified token.
 func (c *limitedCounter) Increment(token string) {
 	c.mu.RLock()
 	ctr, exists := c.counter[token]
@@ -47,7 +47,7 @@ func (c *limitedCounter) Increment(token string) {
 	slog.Debug("Counter", "token", token, "count", ctr.Load())
 }
 
-// Counts clients requests and revokes tokens of the clients who are exceed a limit.
+// RpsLimiter enforces request rate limits per endpoint and revokes tokens for clients exceeding thresholds.
 type RpsLimiter struct {
 	ctx               context.Context
 	endpointCounters  map[string]*remap.ReMap[*limitedCounter]
@@ -56,8 +56,16 @@ type RpsLimiter struct {
 	metricRevokeToken *prometheus.CounterVec
 }
 
-// Adds RPS limit
-func (rl *RpsLimiter) AddLimit(limit usecase.Limit) {
+// AddLimit configures a rate limit for the specified HTTP endpoint.
+//
+// Parameters:
+//   - limit: Protection rule containing path, method, and RPS limit.
+//
+// Behavior:
+// 1. Compiles the endpoint path into a regex pattern.
+// 2. Associates the regex with a limitedCounter for the HTTP method.
+// 3. Logs errors if regex compilation fails.
+func (rl *RpsLimiter) AddLimit(limit usecase.Protection) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 	method := strings.ToUpper(limit.Method)
@@ -78,7 +86,14 @@ func (rl *RpsLimiter) AddLimit(limit usecase.Limit) {
 	counters.Put(endpointRe, &limitedCounter{limit: limit.Limit, counter: make(map[string]*atomic.Uint32)})
 }
 
-// Count client request. Client is represented by token.
+// Count increments the request counter for the specified client token and endpoint.
+//
+// Parameters:
+//   - token: Unique identifier for the client.
+//   - path: Requested URL path.
+//   - method: HTTP method (e.g., "GET", "POST").
+//
+// Thread-safety: Uses read locks to minimize contention while accessing shared counters.
 func (rl *RpsLimiter) Count(
 	token string,
 	path string,
@@ -91,13 +106,30 @@ func (rl *RpsLimiter) Count(
 	if !found {
 		return
 	}
-	counters, _ := endpointCounters.Find(path)
-	for _, counter := range counters {
-		counter.Increment(token)
+	if counters, found := endpointCounters.Find(path); found {
+		for _, counter := range counters {
+			counter.Increment(token)
+		}
 	}
 }
 
-// Revoke tokens of the clients who exceed limits
+// revokeByLimits revokes tokens for clients exceeding configured request rate limits.
+// This method is typically executed periodically in a background goroutine.
+//
+// Parameters:
+//   - tokenCounters: A pointer to a limitedCounter containing client token usage statistics.
+//
+// Returns:
+//   - uint64: Number of tokens successfully revoked during this invocation.
+//
+// Functionality:
+// 1. Iterates through all tracked tokens in tokenCounters.
+// 2. For each token, compares current request count against the configured limit.
+// 3. Revokes tokens where usage exceeds the threshold via tokenManager.Revoke().
+// 4. Logs debug information for each revoked token including:
+//   - Token identifier
+//   - Current request rate (rps)
+//   - Configured rate limit
 func (rl *RpsLimiter) revokeByLimits(tokenCounters *limitedCounter) (revoked uint64) {
 	for token, counter := range tokenCounters.counter {
 		c := counter.Load()
@@ -114,7 +146,12 @@ func (rl *RpsLimiter) revokeByLimits(tokenCounters *limitedCounter) (revoked uin
 	return
 }
 
-// Update counters and revoke tokens of the clients who exceed limits
+// update rotates endpoint counters and revokes tokens for clients exceeding limits.
+//
+// Behavior:
+// 1. Replaces old counters with new empty instances to reset tracking.
+// 2. Launches a goroutine to revoke tokens for the previous counters.
+// 3. Updates Prometheus metrics with the number of revoked tokens.
 func (rl *RpsLimiter) update() {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -132,7 +169,10 @@ func (rl *RpsLimiter) update() {
 	}
 }
 
-// Serve counters
+// Serve runs a periodic task to update counters and revoke tokens.
+//
+// This method blocks until the provided context is canceled.
+// It uses a 1-second ticker to synchronize updates.
 func (rl *RpsLimiter) Serve() {
 	t := time.NewTicker(time.Second)
 	for {
@@ -145,6 +185,14 @@ func (rl *RpsLimiter) Serve() {
 	}
 }
 
+// NewRpsLimiter creates a new RpsLimiter instance with Prometheus metrics integration.
+//
+// Parameters:
+//   - ctx: Context for lifecycle management.
+//   - tokenManager: Token manager used to revoke client tokens.
+//
+// Returns:
+//   - *RpsLimiter: Initialized rate limiter with metrics registration.
 func NewRpsLimiter(ctx context.Context, tokenManager usecase.TokenManager) *RpsLimiter {
 	rl := RpsLimiter{
 		ctx:              ctx,

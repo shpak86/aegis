@@ -1,6 +1,6 @@
-package pow
+package token_manager
 
-const IndexHtml = `<!DOCTYPE html>
+const ShaChallengeIndex = `<!DOCTYPE html>
 <html lang="ru">
 
 <head>
