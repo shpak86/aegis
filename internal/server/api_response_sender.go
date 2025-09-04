@@ -25,7 +25,9 @@ func (rs *ApiResponseSender) Send(response *usecase.Response) (err error) {
 		rs.w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	slog.Debug("Response", "response", response)
+	resp := fmt.Sprintf("%v", response)
+	rl := min(len(resp), 50)
+	slog.Debug("Response", "response", resp[:rl])
 	rs.metricAntibotResponse.WithLabelValues(fmt.Sprintf("%d", response.Code)).Inc()
 	return
 }

@@ -1,0 +1,20 @@
+{
+    "logger": {
+        "level": "debug"
+    },
+    "verification": {
+        "type": "js-challenge",
+        "complexity": "medium"
+    },
+    "protections": [
+        {
+            "path": "^/(index.html)?$",
+            "method": "GET"
+        },
+        {
+            "path": "^/articles/",
+            "method": "POST",
+            "rps": 3
+        }
+    ]
+}

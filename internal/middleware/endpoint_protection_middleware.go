@@ -41,7 +41,7 @@ func (m *EndpointProtectionMiddleware) Handle(request *usecase.Request, response
 		)
 		return
 	}
-	token, exists := m.tokenManager.GetRequestToken(request)
+	token, exists := m.tokenManager.ExtractToken(request)
 	if !exists {
 		response.Send(&usecase.ResponseChallenge)
 		m.metricEndpointProtection.WithLabelValues("forbidden", request.Url).Inc()

@@ -1,6 +1,8 @@
 package usecase
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
 	VerdictContinue = iota
@@ -9,7 +11,9 @@ const (
 )
 
 type TokenManager interface {
-	GetRequestToken(*Request) (string, bool)
+	ExtractToken(*Request) (string, bool)
+	GetChallenge(fp *Fingerprint) ([]byte, error)
+	GetToken(fp *Fingerprint, challenge, solution []byte) (string, error)
 	Validate(*Fingerprint, string) bool
 	Revoke(string) bool
 }

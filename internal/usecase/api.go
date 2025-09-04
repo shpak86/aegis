@@ -35,7 +35,7 @@ type Protection struct {
 
 var ResponseChallenge = Response{
 	Code:    http.StatusFound,
-	Headers: map[string]string{"Location": "/aegis/challenge/index.html"},
+	Headers: map[string]string{"Location": "/aegis/token"},
 	Body:    "Forbidden",
 }
 

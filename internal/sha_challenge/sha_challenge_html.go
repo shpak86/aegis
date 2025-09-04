@@ -1,4 +1,4 @@
-package token_manager
+package sha_challenge
 
 const ShaChallengeIndex = `<!DOCTYPE html>
 <html lang="ru">
@@ -233,7 +233,7 @@ const ShaChallengeIndex = `<!DOCTYPE html>
 					if (postResponse.status === 200) {
 						// Step 4: Success - save token to cookie
 						const token = await postResponse.text();
-						setCookie('AB135', token.trim());
+						setCookie('AEGIS_TOKEN', token.trim());
 						showBackButton();
 						window.location.href = '/';
 						goBack();

@@ -138,7 +138,7 @@ Aegis should be configured in `/etc/aegis/config.json`.
 The list of protection definitions with fields:
 - **`path`** - request path RegEx ⚠️ **Note:** Since the path is a regular expression, specifying `/user` will protect all paths containing this expression: `/user`, `/user/profile`, `/user/10042/profile`, `/some/other/user/profile`, `/username`, etc. Be careful and specify the most precise expressions possible.
 - **`method`** - request method (`GET`, `POST`, etc.)
-- **`rps`** - RPS limit for the client. If `rps` is not set or 0, protection will grant requests only from clients with valid cookie `AB135`.
+- **`rps`** - RPS limit for the client. If `rps` is not set or 0, protection will grant requests only from clients with valid cookie `AEGIS_TOKEN`.
 
 #### Configuration Example
 

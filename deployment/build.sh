@@ -8,7 +8,6 @@ AEGIS_VERSION="0.1.1"
 MODULE_DIR_NAME="ngx_aegis_module"
 BUILD_DIR="$(pwd)/build"
 TEMP_DIR="$(pwd)/temp"
-RELEASE_DIR_NAME="aegis_nginx_${NGINX_VERSION}-${AEGIS_VERSION}"
 
 # List of required utilities
 REQUIRED_CMDS=(curl tar gcc make go)
@@ -40,6 +39,8 @@ for cmd in "${REQUIRED_CMDS[@]}"; do
     exit 2
   fi
 done
+
+RELEASE_DIR_NAME="aegis_nginx_${NGINX_VERSION}-${AEGIS_VERSION}"
 
 echo "Building ngx_aegis_module (NGINX $NGINX_VERSION) and aegis ($AEGIS_VERSION)"
 

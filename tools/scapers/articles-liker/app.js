@@ -29,8 +29,8 @@ import puppeteer from 'puppeteer'
     await page.waitForNetworkIdle()
     // Show Antibot cookie
     const cookies = await browser.cookies()
-    const ab135 = cookies.filter(it => it.name === "AB135")
-    console.log("ab135: " + ab135[0].value)
+    const AEGIS_TOKEN = cookies.filter(it => it.name === "AEGIS_TOKEN")
+    console.log("AEGIS_TOKEN: " + AEGIS_TOKEN[0].value)
     // Like first article
     for (let i = 0; i < 100; i++) {
         const button = await page.$(".card-like-btn")

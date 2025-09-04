@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"aegis/internal/token_manager"
+	"aegis/internal/sha_challenge"
 	"aegis/internal/usecase"
 	"context"
 	"encoding/base64"
@@ -22,19 +22,19 @@ const (
 )
 
 // Serves /aegis/token endpoint and allows to get challenge and antibot token.
-type TokenMiddleware struct {
+type ChallengeTokenMiddleware struct {
 	ctx                    context.Context
 	next                   usecase.Middleware
-	tokenManager           *token_manager.ShaChallengeTokenManager
+	tokenManager           usecase.TokenManager
 	fingerprinter          usecase.FingerprintCalculator
 	metricTokenRequest     *prometheus.CounterVec
 	metricChallengeRequest *prometheus.CounterVec
 }
 
-func (m *TokenMiddleware) Handle(request *usecase.Request, response usecase.ResponseSender) (err error) {
+func (m *ChallengeTokenMiddleware) Handle(request *usecase.Request, response usecase.ResponseSender) (err error) {
 	request.Metadata.Fingerprint = m.fingerprinter.Calculate(request)
 	if request.Url == endpointToken && strings.EqualFold(request.Method, methodGet) {
-		challenge := m.tokenManager.GetChallenge(&request.Metadata.Fingerprint)
+		challenge, _ := m.tokenManager.GetChallenge(&request.Metadata.Fingerprint)
 		body := base64.StdEncoding.EncodeToString(challenge)
 		response.Send(&usecase.Response{
 			Code: http.StatusOK,
@@ -96,7 +96,7 @@ func (m *TokenMiddleware) Handle(request *usecase.Request, response usecase.Resp
 		response.Send(&usecase.Response{
 			Code:    http.StatusOK,
 			Headers: headers,
-			Body:    token_manager.ShaChallengeIndex,
+			Body:    sha_challenge.ShaChallengeIndex,
 		})
 	} else {
 		m.next.Handle(request, response)
@@ -104,13 +104,13 @@ func (m *TokenMiddleware) Handle(request *usecase.Request, response usecase.Resp
 	return
 }
 
-func NewTokenMiddleware(
+func NewChallengeTokenMiddleware(
 	ctx context.Context,
 	next usecase.Middleware,
 	fingerprinter usecase.FingerprintCalculator,
-	tokenManager *token_manager.ShaChallengeTokenManager,
-) *TokenMiddleware {
-	m := TokenMiddleware{
+	tokenManager usecase.TokenManager,
+) *ChallengeTokenMiddleware {
+	m := ChallengeTokenMiddleware{
 		ctx:           ctx,
 		tokenManager:  tokenManager,
 		fingerprinter: fingerprinter,
@@ -130,6 +130,5 @@ func NewTokenMiddleware(
 	)
 	prometheus.MustRegister(m.metricTokenRequest)
 	prometheus.MustRegister(m.metricChallengeRequest)
-	slog.Debug("TokenMiddleware", slog.Int("complexity", tokenManager.GetComplexity()))
 	return &m
 }

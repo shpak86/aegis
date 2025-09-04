@@ -1,9 +1,10 @@
 package middleware
 
 import (
+	"aegis/internal/captcha"
 	"aegis/internal/fingerprint"
 	"aegis/internal/limiter"
-	"aegis/internal/token_manager"
+	"aegis/internal/sha_challenge"
 	"aegis/internal/usecase"
 	"context"
 )
@@ -40,7 +41,7 @@ func DefaultProtectionChain(ctx context.Context, complexity string, protections 
 	default:
 		complexityLevel = 2
 	}
-	tokenManager := token_manager.NewShaChallengeTokenManager(complexityLevel)
+	tokenManager := sha_challenge.NewShaChallengeTokenManager(complexityLevel)
 
 	rateLimiter := limiter.NewRpsLimiter(ctx, tokenManager)
 	for _, p := range protections {
@@ -50,7 +51,44 @@ func DefaultProtectionChain(ctx context.Context, complexity string, protections 
 
 	rateLimitMiddleware := NewRateLimitMiddleware(ctx, nil, tokenManager, rateLimiter)
 	endpointProtectionMiddleware := NewEndpointProtectionMiddleware(ctx, rateLimitMiddleware, tokenManager, fingerprinter, protections)
-	tokenMiddleware := NewTokenMiddleware(ctx, endpointProtectionMiddleware, fingerprinter, tokenManager)
+	tokenMiddleware := NewChallengeTokenMiddleware(ctx, endpointProtectionMiddleware, fingerprinter, tokenManager)
+
+	chainer := NewChainer(ctx)
+	chainer.Add(tokenMiddleware)
+	chainer.Add(endpointProtectionMiddleware)
+	chainer.Add(rateLimitMiddleware)
+	return chainer
+}
+
+func CaptchaProtectionChain(ctx context.Context, complexity string, protections []usecase.Protection, assets string) *Chainer {
+
+	fingerprinter := fingerprint.NewAddressHeadersFingerprinter()
+	var complexityLevel int
+	switch complexity {
+	case "easy":
+		complexityLevel = captcha.CaptchaComplexityEasy
+	case "medium":
+		complexityLevel = captcha.CaptchaComplexityMedium
+	case "hard":
+		complexityLevel = captcha.CaptchaComplexityHard
+	default:
+		complexityLevel = captcha.CaptchaComplexityMedium
+	}
+	tokenManager := captcha.NewCaptchaTokenManager(
+		complexityLevel,
+		assets,
+	)
+	go tokenManager.Serve()
+
+	rateLimiter := limiter.NewRpsLimiter(ctx, tokenManager)
+	for _, p := range protections {
+		rateLimiter.AddLimit(usecase.Protection(p))
+	}
+	go rateLimiter.Serve()
+
+	rateLimitMiddleware := NewRateLimitMiddleware(ctx, nil, tokenManager, rateLimiter)
+	endpointProtectionMiddleware := NewEndpointProtectionMiddleware(ctx, rateLimitMiddleware, tokenManager, fingerprinter, protections)
+	tokenMiddleware := NewCaptchaTokenMiddleware(ctx, endpointProtectionMiddleware, fingerprinter, tokenManager)
 
 	chainer := NewChainer(ctx)
 	chainer.Add(tokenMiddleware)

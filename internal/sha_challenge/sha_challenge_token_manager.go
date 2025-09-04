@@ -1,4 +1,4 @@
-package token_manager
+package sha_challenge
 
 import (
 	"aegis/internal/usecase"
@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	tokenCookie = "AB135"
+	tokenCookie = "AEGIS_TOKEN"
 )
 
 type TokenGenerationError struct {
@@ -46,18 +46,19 @@ type ShaChallengeTokenManager struct {
 	tmu        sync.RWMutex
 }
 
-func (m *ShaChallengeTokenManager) GetRequestToken(request *usecase.Request) (token string, exists bool) {
+// Extracts token from request
+func (m *ShaChallengeTokenManager) ExtractToken(request *usecase.Request) (token string, exists bool) {
 	token, exists = request.Cookies[tokenCookie]
 	return
 }
 
-func (m *ShaChallengeTokenManager) GetChallenge(fp *usecase.Fingerprint) []byte {
+func (m *ShaChallengeTokenManager) GetChallenge(fp *usecase.Fingerprint) ([]byte, error) {
 	c := challenge{clientFp: fp, time: time.Now(), challenge: make([]byte, m.complexity)}
 	rand.Read(c.challenge)
 	m.cmu.Lock()
 	defer m.cmu.Unlock()
 	m.challenges[string(c.challenge)] = &c
-	return c.challenge
+	return c.challenge, nil
 }
 
 // Checks the solution for the specified fingerprint. If the soluiton is correct the new token will be returned.

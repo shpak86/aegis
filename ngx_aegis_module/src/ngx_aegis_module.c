@@ -590,7 +590,7 @@ antibot_call_service(ngx_http_request_t *r, ngx_str_t *json_req, int *resp_code,
     }
 
     /* Receive response - FIXED: Read all data in loop */
-    size_t buf_size = 32768; /* Увеличен размер буфера */
+    size_t buf_size = 500 * 1024; /* Увеличен размер буфера */
     u_char *buf = ngx_pnalloc(r->pool, buf_size);
     if (!buf) {
         ANTIBOT_LOG(NGX_LOG_ERR, r, "failed to allocate response buffer");

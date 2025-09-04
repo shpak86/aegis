@@ -15,7 +15,7 @@ type RateLimitMiddleware struct {
 }
 
 func (m *RateLimitMiddleware) Handle(request *usecase.Request, response usecase.ResponseSender) (err error) {
-	token, exists := m.tokenManager.GetRequestToken(request)
+	token, exists := m.tokenManager.ExtractToken(request)
 	if !exists {
 		response.Send(&usecase.ResponseChallenge)
 		return
