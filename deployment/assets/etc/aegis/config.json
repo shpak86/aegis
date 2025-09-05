@@ -1,20 +1,15 @@
 {
     "logger": {
-        "level": "debug"
+        "level": "info"
     },
     "verification": {
-        "type": "js-challenge",
+        "type": "captcha",
         "complexity": "medium"
     },
     "protections": [
         {
             "path": "^/(index.html)?$",
             "method": "GET"
-        },
-        {
-            "path": "^/articles/",
-            "method": "POST",
-            "rps": 3
         }
     ]
 }

@@ -38,7 +38,7 @@ func NewServer(
 	case "js-challenge":
 		chainer = middleware.DefaultProtectionChain(server.ctx, verificationComplexity, protections)
 	case "captcha":
-		chainer = middleware.CaptchaProtectionChain(server.ctx, verificationComplexity, protections, "/home/ash/projects/aegis/assets/classification_captcha/templates.json")
+		chainer = middleware.CaptchaProtectionChain(server.ctx, verificationComplexity, protections, "/usr/share/aegis/captcha/captcha.json")
 	default:
 		slog.Error("Unable to start server", slog.String("error", fmt.Sprintf("unknown type: %s", verificationType)))
 		os.Exit(1)

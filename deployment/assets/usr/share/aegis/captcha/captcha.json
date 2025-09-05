@@ -1,0 +1,69 @@
+{
+    "templates": [
+        {
+            "description": "Mark all the images that have cats on them.",
+            "images": [
+                 "/usr/share/aegis/captcha/images/cat1_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/cat2_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/cat3_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/cat4_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/cat5_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/cat6_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/cat7_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/cat8_thumbnail.jpg"
+            ]
+        },
+        {
+            "description": "Mark all the images that have dogs on them.",
+            "images": [
+                 "/usr/share/aegis/captcha/images/dog1_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/dog2_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/dog3_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/dog4_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/dog5_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/dog6_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/dog7_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/dog8_thumbnail.jpg"
+            ]
+        },
+        {
+            "description": "Mark all the images that have bicycles on them.",
+            "images": [
+                 "/usr/share/aegis/captcha/images/bike1_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/bike2_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/bike3_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/bike4_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/bike5_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/bike6_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/bike7_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/bike8_thumbnail.jpg"
+            ]
+        },
+        {
+            "description": "Mark all the images that have flowers on them.",
+            "images": [
+                 "/usr/share/aegis/captcha/images/flower1_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/flower2_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/flower3_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/flower4_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/flower5_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/flower6_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/flower7_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/flower8_thumbnail.jpg"
+            ]
+        },
+        {
+            "description": "Mark all the images that have vegetables on them.",
+            "images": [
+                 "/usr/share/aegis/captcha/images/vegetable1_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/vegetable2_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/vegetable3_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/vegetable4_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/vegetable5_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/vegetable6_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/vegetable7_thumbnail.jpg",
+                 "/usr/share/aegis/captcha/images/vegetable8_thumbnail.jpg"
+            ]
+        }
+    ]
+}

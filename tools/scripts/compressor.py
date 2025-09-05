@@ -3,7 +3,6 @@ from PIL import Image
 import io
 import os
 
-# Названия файлов
 file_names = [
     "cat1_thumbnail.png",
     "cat2_thumbnail.png", "cat3_thumbnail.png", "cat4_thumbnail.png",
@@ -18,13 +17,9 @@ file_names = [
     "vegetable5_thumbnail.png", "vegetable6_thumbnail.png", "vegetable7_thumbnail.png", "vegetable8_thumbnail.png"
 ]
 
-print("Начинаю загрузку и обработку изображений...")
-
 for file_name in file_names:
         src="t/"+ file_name
         dst=file_name.replace(".png",".jpg")
         print(src+" => "+dst)
         image = Image.open(src)
         image.save(dst, optimize=True,quality=50, format="JPEG")
-
-print("\nОбработка завершена!")

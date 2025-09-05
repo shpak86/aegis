@@ -1,8 +1,0 @@
-Package: aegis
-Version: 1.0
-Section: web
-Priority: optional
-Architecture: amd64
-Depends: libpcre3-dev, zlib1g-dev, libssl-dev
-Maintainer: Anton Shpakovsky <an.shpakovsky@yandex.ru>
-Description: Nginx bot protection service

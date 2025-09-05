@@ -148,6 +148,40 @@ const captchaPage = `<!DOCTYPE html>
             cursor: not-allowed;
         }
 
+        #continueLink {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0 10px;
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+        }
+
+        #continueLink:hover {
+            background-color: #218838;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        #continueLink:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+        }
+
+        #continueLink:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.25);
+        }
+
         .loading {
             display: none;
             text-align: center;
@@ -175,7 +209,7 @@ const captchaPage = `<!DOCTYPE html>
         </div>
 
         <!-- Task Description -->
-        <div class="captcha-description">
+        <div class="captcha-description" id="captchaDescription">
             {{.Description}}
         </div>
 
@@ -193,7 +227,7 @@ const captchaPage = `<!DOCTYPE html>
         <!-- Control Buttons -->
         <div class="control-buttons">
             <button class="btn btn-primary" onclick="submitSolution()" id="continueBtn">Continue</button>
-        <a href="/">Home</a>
+            <a href="/" id="continueLink">Continue</a>
         </div>
 
         <!-- Loading Indicator -->
@@ -269,9 +303,10 @@ const captchaPage = `<!DOCTYPE html>
          * Submit the CAPTCHA solution to the server
          */
         async function submitSolution() {
-		 	setTimeout(() => {
-                document.location.href = '/';
-		 		return;
+
+            setTimeout(() => {
+                hideLoading();
+                showContinue();
             }, 2000);
 
             if (selectedImages.size === 0) {
@@ -291,7 +326,7 @@ const captchaPage = `<!DOCTYPE html>
                 solution: solution
             };
 
-            // try {
+            try {
                 // Send POST request to server
                 const response = await fetch('/aegis/token', {
                     method: 'POST',
@@ -301,20 +336,20 @@ const captchaPage = `<!DOCTYPE html>
                     body: JSON.stringify(payload)
                 });
 
-                // hideLoading();
+                hideLoading();
 
                 if (response.status === 200) {
                     const token = await response.text();
-					setCookie('AEGIS_TOKEN', token.trim());
+                    setCookie('AEGIS_TOKEN', token.trim());
                 } else {
                     // Failed verification - reload current page
                     showError('Verification failed. Please try again.');
                 }
-            // } catch (error) {
-            //     hideLoading();
-            //     showError('Network error. Please check your connection and try again.');
-            //     console.error('CAPTCHA submission error:', error);
-            // }
+            } catch (error) {
+                hideLoading();
+                showError('Please try again.');
+                console.error('CAPTCHA submission error:', error);
+            }
         }
 
         /**
@@ -323,6 +358,9 @@ const captchaPage = `<!DOCTYPE html>
         function showLoading() {
             document.getElementById('loadingIndicator').style.display = 'block';
             document.getElementById('continueBtn').disabled = true;
+            document.getElementById('continueBtn').style.display = 'none';
+            document.getElementById('imagesGrid').style.display = 'none';
+            document.getElementById('captchaDescription').style.display = 'none';
             hideError();
         }
 
@@ -332,6 +370,26 @@ const captchaPage = `<!DOCTYPE html>
         function hideLoading() {
             document.getElementById('loadingIndicator').style.display = 'none';
             document.getElementById('continueBtn').disabled = false;
+        }
+
+        /**
+         * Hide continue
+         */
+        function hideContinue() {
+            document.getElementById('continueLink').style.display = 'none';
+            document.getElementById('continueLink').disabled = true;
+        }
+
+        /**
+         * Show continue
+         */
+        function showContinue() {
+            document.getElementById('loadingIndicator').style.display = 'none';
+            document.getElementById('continueBtn').style.display = 'none';
+            document.getElementById('imagesGrid').style.display = 'none';
+            document.getElementById('captchaDescription').style.display = 'none';
+            document.getElementById('continueLink').style.display = 'block';
+            document.getElementById('continueLink').disabled = false;
         }
 
         /**
@@ -371,6 +429,7 @@ const captchaPage = `<!DOCTYPE html>
         document.addEventListener('DOMContentLoaded', function () {
             initializeCaptcha();
             updateContinueButton();
+            hideContinue();
 
             // Add keyboard event listeners
             document.addEventListener('keydown', handleKeyboard);

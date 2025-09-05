@@ -39,10 +39,10 @@ func (m *CaptchaTokenMiddleware) Handle(request *usecase.Request, response useca
 			return err
 		}
 		headers := map[string]string{
-			"Content-Type": "text/html; charset=utf-8",
-			// "Cache-Control":          "no-cache, no-store, must-revalidate",
-			// "X-Frame-Options":        "DENY",
-			// "X-Content-Type-Options": "nosniff",
+			"Content-Type":           "text/html; charset=utf-8",
+			"Cache-Control":          "no-cache, no-store, must-revalidate",
+			"X-Frame-Options":        "DENY",
+			"X-Content-Type-Options": "nosniff",
 		}
 		response.Send(&usecase.Response{
 			Code:    http.StatusOK,
@@ -61,14 +61,17 @@ func (m *CaptchaTokenMiddleware) Handle(request *usecase.Request, response useca
 			m.metricTokenRequest.WithLabelValues("pow", "wrong").Add(1)
 			response.Send(&usecase.Response{
 				Code: http.StatusUnprocessableEntity,
+				Headers: map[string]string{
+					"Content-Type": "text/html; charset=utf-8",
+				},
 			})
 			return err
 		}
 		headers := map[string]string{
-			"Content-Type": "text/html; charset=utf-8",
-			// "Cache-Control":          "no-cache, no-store, must-revalidate",
-			// "X-Frame-Options":        "DENY",
-			// "X-Content-Type-Options": "nosniff",
+			"Content-Type":           "text/html; charset=utf-8",
+			"Cache-Control":          "no-cache, no-store, must-revalidate",
+			"X-Frame-Options":        "DENY",
+			"X-Content-Type-Options": "nosniff",
 		}
 		response.Send(&usecase.Response{
 			Code:    http.StatusOK,

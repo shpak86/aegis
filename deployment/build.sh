@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+#!/bin/bash -x
+
 set -euo pipefail
 IFS=$'\n\t'
 
@@ -77,7 +78,7 @@ popd >/dev/null
 echo "Creating release package $RELEASE_DIR_NAME"
 RELEASE_ROOT="$BUILD_DIR/$RELEASE_DIR_NAME"
 mkdir -p "$RELEASE_ROOT/usr/bin" "$RELEASE_ROOT/usr/share/nginx/modules"
-cp -r package/etc "$RELEASE_ROOT/etc"
+cp -r assets/* "$RELEASE_ROOT/"
 cp "$BUILD_DIR/aegis/aegis" "$RELEASE_ROOT/usr/bin/"
 cp "$BUILD_DIR/${MODULE_DIR_NAME}-$NGINX_VERSION/${MODULE_DIR_NAME}.so" "$RELEASE_ROOT/usr/share/nginx/modules/"
 pushd "$RELEASE_ROOT" >/dev/null
