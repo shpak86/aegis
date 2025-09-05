@@ -10,6 +10,14 @@ Aegis is a bot detection and protection system that adds a layer of security to 
 
 The system operates in real time, blocking bots 1–2 seconds after detection. Configuration is managed via directives in plain text config files. Aegis provides Prometheus metrics and can be easily integrated with monitoring systems. Aegis can run as a sidecar on the same server as nginx or as a standalone service, making it easy to integrate into existing infrastructure.
 
+### Playground
+
+You can try Aegis proection on http://project-aegis.ru playground. 
+
+There are following protections confgured:
+- `GET` requests on `/` are protecting
+- `POST` requests on `/articles/` are protecting and limited with 2 RPS 
+
 ## Key Features
 
 - ✅ Real-time bot detection
@@ -17,7 +25,7 @@ The system operates in real time, blocking bots 1–2 seconds after detection. C
 - ✅ Token protection
 - ✅ Basic logging and monitoring capabilities
 - ✅ JavaScript challenge mechanism
-- ✅ Captha
+- ✅ Captcha challenge
 
 ## System Requirements
 
@@ -229,7 +237,7 @@ To obtain a token, the client must perform a hash computation with a specified p
 #### Added
 - Captcha challenge
 
-### Version 0.1.1 (August 4, 2025)
+### Version 0.1.1 (September 4, 2025)
 
 #### Changed
 - Refactoring

@@ -238,5 +238,5 @@ func main() {
 	})
 	staicHandler := http.FileServer(http.Dir(*staticDir))
 	http.Handle("/", staicHandler)
-	http.ListenAndServe(fmt.Sprintf(":%d", *listenPort), nil)
+	http.ListenAndServe(fmt.Sprintf("localhost:%d", *listenPort), nil)
 }
