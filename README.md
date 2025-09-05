@@ -17,6 +17,7 @@ The system operates in real time, blocking bots 1–2 seconds after detection. C
 - ✅ Token protection
 - ✅ Basic logging and monitoring capabilities
 - ✅ JavaScript challenge mechanism
+- ✅ Captha
 
 ## System Requirements
 
@@ -127,7 +128,7 @@ Aegis should be configured in `/etc/aegis/config.json`.
 
 - **`address`** - allows you to change the address which antibot is serving. Bu default address is **localhost:6996**
 - **`logger.level`** - configures verbosity of the logger. Possible values: `DEBUG`, `INFO`, `WARNING`, `ERROR`
-- **`verification.type`** - verification method
+- **`verification.type`** - verification method. Possible values: `js-challenge` or `captcha`
 - **`verification.complexity`** - complexity of the JavaScript challenge:
   - `easy` - easy (less than 1 second to solve)
   - `medium` - optimal (1-5 seconds)
@@ -215,10 +216,25 @@ location /api/ {
 ```
 
 ## Aegis Token
+There are two challenges available - chaptcha and js-challenge. 
 
+### Captcha
+To obtain a token, the client should select images by the text description.
+
+### JS-challenge
 To obtain a token, the client must perform a hash computation with a specified prefix as proof of work. The calculation and assignment of the token are fully automated and do not require any manual action.
 
 ## Changelog
+
+### Version 0.2.0 (Septemper 5, 2025)
+
+#### Added
+- Captcha challenge
+
+### Version 0.1.1 (August 4, 2025)
+
+#### Changed
+- Refactoring
 
 ### Version 0.1.0 (August 28, 2025)
 
