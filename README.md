@@ -53,35 +53,32 @@ The system operates in real time, blocking bots 1–2 seconds after detection. C
                               └───────────────────┘
 ```
 
-## Building
-
-To build archive with aegis and ngx_aegis_module use build script. You need to specify NGINX and Aegis versions during build script execution.
-
-```bash
-cd deployments
-
-# Set NGINX and aegis versions and buid an archive
-NGINX_VERSION=1.24.0 AEGIS_VERSION=0.1.0 ./build.sh 
-
-# See the archive
-ls -lah build/aegis-0.1.0.124.tar.gz
-```
-
 ## Installation
 
 ### Manual Installation
 
-You need to download and extract binaries and configuration files specific to your Nginx version.
+Build the package using build script. You can specify Nginx version using -n flag. By default Nginx 1.28.0 is used.
 
 ```bash
-# Extract files
-tar -C / -xf aegis-0.1.0.124.tar.gz
+cd deployment
+./build.sh -n 1.24.0
+```
 
-# Update systemd and enable and start aegis
+Script will print path to the created package, for example: `Build completed: /home/user/repos/aegis/deployment/build/aegis_nginx_1.28.0-0.2.0.tar.gz`. Extract this package as a privileged user. 
+
+```bash
+sudo tar -C / -vxf build/aegis_nginx_1.28.0-0.2.0.tar.gz 
+```
+
+Enable and start aegis.
+
+```bash
 systemctl daemon-reload
 systemctl enable aegis
 systemctl start aegis
 ```
+
+Nginx module is extracting to `/usr/share/nginx/modules/ngx_aegis_module.so`.
 
 ## Management
 
@@ -102,7 +99,7 @@ journalctl -u aegis
 
 ### Nginx
 
-The module writes messages into the standard Nginx log using the "antibot" tag. To filter these messages, execute the command:
+The module writes messages into the standard Nginx log using the "aegis" tag. To filter these messages, execute the command:
 
 ```bash
 tail -f /var/log/nginx/error.log | grep aegis
@@ -123,6 +120,7 @@ Available metrics:
 ### Aegis Configuration
 
 Aegis should be configured in `/etc/aegis/config.json`.
+
 
 #### Main Parameters
 
