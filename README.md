@@ -38,10 +38,10 @@ There are following protections confgured:
 ## Architecture
 
 ```
-┌─────────────┐ HTTP Request ┌──────────────────────┐
-│   Client    │ ───────────► │      nginx           │
-└─────────────┘              │ (ngx_aegis_module)   │
-                             └──────────┬───────────┘
+┌─────────────┐ HTTP Request ┌─────────────────────────┐
+│   Client    │ ───────────► │           nginx         │
+└─────────────┘              │ (ngx_http_aegis_module) │
+                             └──────────┬──────────────┘
                                         │
                               Request + Client metadata
                                         ▼
@@ -86,7 +86,7 @@ systemctl enable aegis
 systemctl start aegis
 ```
 
-Nginx module is extracting to `/usr/share/nginx/modules/ngx_aegis_module.so`.
+Nginx module is extracting to `/usr/share/nginx/modules/ngx_http_aegis_module.so`.
 
 ## Management
 
@@ -193,7 +193,7 @@ In this example:
 Load aegis module with the `load_module` directive:
 
 ```nginx
-load_module /usr/share/nginx/modules/ngx_aegis_module.so;
+load_module /usr/share/nginx/modules/ngx_http_aegis_module.so;
 ```
 
 Aegis protects only endpoints with the `aegis_enable` directive, so you need to add this directive to all endpoints you want to protect.
@@ -232,6 +232,11 @@ To obtain a token, the client must perform a hash computation with a specified p
 
 ## Changelog
 
+### Version 0.2.1 (Septemper 6, 2025)
+
+#### Fixed ngx_http_aegis_module
+-  
+
 ### Version 0.2.0 (Septemper 5, 2025)
 
 #### Added
@@ -246,7 +251,7 @@ To obtain a token, the client must perform a hash computation with a specified p
 
 #### Added
 - Basic Aegis service
-- Basic ngx_aegis_module
+- Basic ngx_http_aegis_module
 - Rate limiting
 - JS challenge
 - Client fingerprint

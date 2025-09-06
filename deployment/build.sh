@@ -5,8 +5,8 @@ IFS=$'\n\t'
 
 # Default versions can be set via environment variables
 NGINX_VERSION="1.28.0"
-AEGIS_VERSION="0.2.0"
-MODULE_DIR_NAME="ngx_aegis_module"
+AEGIS_VERSION="0.2.1"
+MODULE_DIR_NAME="ngx_http_aegis_module"
 BUILD_DIR="$(pwd)/build"
 TEMP_DIR="$(pwd)/temp"
 
@@ -43,30 +43,19 @@ done
 
 RELEASE_DIR_NAME="aegis_nginx_${NGINX_VERSION}-${AEGIS_VERSION}"
 
-echo "Building ngx_aegis_module (NGINX $NGINX_VERSION) and aegis ($AEGIS_VERSION)"
+echo "Building ngx_http_aegis_module (NGINX $NGINX_VERSION) and aegis ($AEGIS_VERSION)"
 
 # Prepare directories
 rm -rf "$TEMP_DIR" "$BUILD_DIR"
-mkdir -p "$TEMP_DIR" "$BUILD_DIR/${MODULE_DIR_NAME}-$NGINX_VERSION" "$BUILD_DIR/aegis"
-
-# Download and extract NGINX
-NGINX_TAR="nginx-${NGINX_VERSION}.tar.gz"
-NGINX_URL="https://nginx.org/download/${NGINX_TAR}"
-echo "Downloading $NGINX_URL"
-curl -fSL "$NGINX_URL" -o "$TEMP_DIR/$NGINX_TAR"
-echo "Extracting $NGINX_TAR"
-tar -xzf "$TEMP_DIR/$NGINX_TAR" -C "$TEMP_DIR"
+mkdir -p "$TEMP_DIR" "$BUILD_DIR/${MODULE_DIR_NAME}-$NGINX_VERSION" "$BUILD_DIR/aegis" "$TEMP_DIR/nginx-${NGINX_VERSION}/${MODULE_DIR_NAME}"
 
 # Copy module files
 echo "Copying $MODULE_DIR_NAME module"
-cp -r "../${MODULE_DIR_NAME}/src" "$TEMP_DIR/nginx-${NGINX_VERSION}/${MODULE_DIR_NAME}"
-
-# Build dynamic module
-pushd "$TEMP_DIR/nginx-${NGINX_VERSION}" >/dev/null
-./configure --add-dynamic-module=./${MODULE_DIR_NAME} --with-compat
-make modules
-cp objs/${MODULE_DIR_NAME}.so "$BUILD_DIR/${MODULE_DIR_NAME}-$NGINX_VERSION/"
+cp -r "../${MODULE_DIR_NAME}" "$TEMP_DIR/nginx-${NGINX_VERSION}"
+pushd "$TEMP_DIR/nginx-${NGINX_VERSION}/${MODULE_DIR_NAME}" >/dev/null
+NGINX_VERSION=${NGINX_VERSION} make build
 popd >/dev/null
+cp $TEMP_DIR/nginx-${NGINX_VERSION}/${MODULE_DIR_NAME}/build/nginx-${NGINX_VERSION}/objs/ngx_http_aegis_module.so "$BUILD_DIR/${MODULE_DIR_NAME}-$NGINX_VERSION/"
 
 # Build aegis binary
 echo "Building aegis"

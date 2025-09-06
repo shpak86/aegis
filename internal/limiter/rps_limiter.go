@@ -44,7 +44,6 @@ func (c *limitedCounter) Increment(token string) {
 	ctr = &atomic.Uint32{}
 	c.counter[token] = ctr
 	ctr.Add(1)
-	slog.Debug("Counter", "token", token, "count", ctr.Load())
 }
 
 // RpsLimiter enforces request rate limits per endpoint and revokes tokens for clients exceeding thresholds.

@@ -38,7 +38,7 @@ func prepareLogger(level string) {
 func main() {
 	var err error
 
-	versionProvider := version.NewVersionProvider("0.2.0")
+	versionProvider := version.NewVersionProvider("0.2.1")
 
 	versionFlag := flag.Bool("version", false, "Print Aegis version")
 	configPath := flag.String("config", "/etc/aegis/config.json", "Configuration path")
