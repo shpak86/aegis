@@ -12,7 +12,7 @@ The system operates in real time, blocking bots 1–2 seconds after detection. C
 
 ### Playground
 
-You can try Aegis proection on http://project-aegis.ru playground. 
+You can try Aegis protection on http://project-aegis.ru playground. 
 
 There are following protections confgured:
 - `GET` requests on `/` are protecting
@@ -135,10 +135,10 @@ Aegis should be configured in `/etc/aegis/config.json`.
 - **`address`** - allows you to change the address which antibot is serving. Bu default address is **localhost:6996**
 - **`logger.level`** - configures verbosity of the logger. Possible values: `DEBUG`, `INFO`, `WARNING`, `ERROR`
 - **`verification.type`** - verification method. Possible values: `js-challenge` or `captcha`
-- **`verification.complexity`** - complexity of the JavaScript challenge:
-  - `easy` - easy (less than 1 second to solve)
-  - `medium` - optimal (1-5 seconds)
-  - `hard` - hard (10-60 seconds to solve)
+- **`verification.complexity`** - complexity of the challenge. For JS-challenge complexity determines the time required for the solution. For captcha it determines the number of images.
+  - `easy` - easy
+  - `medium` - optimal
+  - `hard` - hard
 
 #### Protections
 
@@ -229,33 +229,6 @@ To obtain a token, the client should select images by the text description.
 
 ### JS-challenge
 To obtain a token, the client must perform a hash computation with a specified prefix as proof of work. The calculation and assignment of the token are fully automated and do not require any manual action.
-
-## Changelog
-
-### Version 0.2.1 (Septemper 6, 2025)
-
-#### Fixed ngx_http_aegis_module
--  
-
-### Version 0.2.0 (Septemper 5, 2025)
-
-#### Added
-- Captcha challenge
-
-### Version 0.1.1 (September 4, 2025)
-
-#### Changed
-- Refactoring
-
-### Version 0.1.0 (August 28, 2025)
-
-#### Added
-- Basic Aegis service
-- Basic ngx_http_aegis_module
-- Rate limiting
-- JS challenge
-- Client fingerprint
-- Prometheus metrics
 
 ## Support
 
