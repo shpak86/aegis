@@ -5,7 +5,7 @@ IFS=$'\n\t'
 
 # Default versions can be set via environment variables
 NGINX_VERSION="1.28.0"
-AEGIS_VERSION="0.2.2"
+AEGIS_VERSION="0.2.3"
 MODULE_DIR_NAME="ngx_http_aegis_module"
 BUILD_DIR="$(pwd)/build"
 TEMP_DIR="$(pwd)/temp"

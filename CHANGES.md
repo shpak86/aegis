@@ -1,5 +1,10 @@
 # Changelog
 
+### Version 0.2.3 (Septemper 10, 2025)
+
+#### Features 
+- Improved logging
+
 ### Version 0.2.2 (Septemper 8, 2025)
 
 #### Features 
