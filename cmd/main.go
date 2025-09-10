@@ -63,8 +63,6 @@ func main() {
 		protections[i] = usecase.Protection(cfg.Protections[i])
 	}
 
-	slog.Info("Starting Aegis server")
-
 	server := server.NewServer(
 		appCtx,
 		cfg.Address,
@@ -78,7 +76,7 @@ func main() {
 	serverError := make(chan error, 1)
 
 	go func() {
-		slog.Debug("API address", slog.String("address", cfg.Address))
+		slog.Info("Starting Aegis server", slog.String("address", cfg.Address))
 		err = server.Serve()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverError <- err
@@ -86,9 +84,10 @@ func main() {
 			slog.Info("Server stopped")
 		}
 	}()
+
 	select {
 	case err := <-serverError:
-		slog.Error("API server", slog.String("error", err.Error()))
+		slog.Error("Server", slog.String("error", err.Error()))
 	case <-sigChan:
 		slog.Info("Shutting down server")
 	}

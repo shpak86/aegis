@@ -26,8 +26,7 @@ func (rs *ApiResponseSender) Send(response *usecase.Response) (err error) {
 		return
 	}
 	resp := fmt.Sprintf("%v", response)
-	rl := min(len(resp), 50)
-	slog.Debug("Response", "response", resp[:rl])
+	slog.Debug("Response", "response", resp)
 	rs.metricAntibotResponse.WithLabelValues(fmt.Sprintf("%d", response.Code)).Inc()
 	return
 }

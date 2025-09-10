@@ -28,8 +28,7 @@ func (m *CaptchaTokenMiddleware) Handle(request *usecase.Request, response useca
 		if err != nil {
 			m.metricTokenRequest.WithLabelValues("pow", "unprocessable").Add(1)
 			slog.Warn("Unable get captcha",
-				slog.String("address", request.ClientAddress),
-				slog.String("fp", request.Metadata.Fingerprint.Prefix()),
+				slog.String("fp", request.Metadata.Fingerprint.String),
 				slog.String("path", request.Url),
 				slog.String("error", err.Error()),
 			)
@@ -53,8 +52,7 @@ func (m *CaptchaTokenMiddleware) Handle(request *usecase.Request, response useca
 		token, err := m.tokenManager.GetToken(&request.Metadata.Fingerprint, []byte{}, []byte(request.Body))
 		if err != nil {
 			slog.Warn("Wrong solution",
-				slog.String("address", request.ClientAddress),
-				slog.String("fp", request.Metadata.Fingerprint.Prefix()),
+				slog.String("fp", request.Metadata.Fingerprint.String),
 				slog.String("body", request.Body),
 				slog.String("error", err.Error()),
 			)
@@ -67,6 +65,11 @@ func (m *CaptchaTokenMiddleware) Handle(request *usecase.Request, response useca
 			})
 			return err
 		}
+		m.metricTokenRequest.WithLabelValues("pow", "success").Add(1)
+		slog.Info("Token is issued",
+			slog.String("fp", request.Metadata.Fingerprint.String),
+			slog.String("token", token),
+		)
 		headers := map[string]string{
 			"Content-Type":           "text/html; charset=utf-8",
 			"Cache-Control":          "no-cache, no-store, must-revalidate",
@@ -78,12 +81,6 @@ func (m *CaptchaTokenMiddleware) Handle(request *usecase.Request, response useca
 			Headers: headers,
 			Body:    token,
 		})
-		m.metricTokenRequest.WithLabelValues("pow", "success").Add(1)
-		slog.Debug("Token is issued",
-			slog.String("address", request.ClientAddress),
-			slog.String("fp", request.Metadata.Fingerprint.Prefix()),
-			slog.String("token", token),
-		)
 	} else {
 		m.next.Handle(request, response)
 	}

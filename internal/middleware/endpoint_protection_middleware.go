@@ -4,7 +4,6 @@ import (
 	"aegis/internal/remap"
 	"aegis/internal/usecase"
 	"context"
-	"fmt"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -33,36 +32,35 @@ func (m *EndpointProtectionMiddleware) Handle(request *usecase.Request, response
 		_, isProtected = protectingEndpoints.Find(request.Url)
 	}
 	if !isProtected {
-		response.Send(&usecase.ResponseContinue)
 		slog.Debug("Unprotected",
-			slog.String("address", request.ClientAddress),
+			slog.String("fp", request.Metadata.Fingerprint.String),
 			slog.String("path", request.Url),
 			slog.String("method", method),
 		)
+		response.Send(&usecase.ResponseContinue)
 		return
 	}
 	token, exists := m.tokenManager.ExtractToken(request)
 	if !exists {
-		response.Send(&usecase.ResponseChallenge)
 		m.metricEndpointProtection.WithLabelValues("forbidden", request.Url).Inc()
-		slog.Debug("Forbidden. Token is absent.",
-			slog.String("address", request.ClientAddress),
+		slog.Info("Token is absent.",
+			slog.String("fp", request.Metadata.Fingerprint.String),
 			slog.String("path", request.Url),
 			slog.String("method", method),
 		)
+		response.Send(&usecase.ResponseChallenge)
 		return
 	}
 	isValidToken := m.tokenManager.Validate(&request.Metadata.Fingerprint, token)
 	if !isValidToken {
-		response.Send(&usecase.ResponseChallenge)
 		m.metricEndpointProtection.WithLabelValues("forbidden", request.Url).Inc()
-		slog.Debug("Forbidden. Invalid token.",
-			slog.String("address", request.ClientAddress),
-			slog.String("fp", request.Metadata.Fingerprint.Prefix()),
+		slog.Info("Invalid token.",
+			slog.String("fp", request.Metadata.Fingerprint.String),
 			slog.String("token", token),
 			slog.String("path", request.Url),
 			slog.String("method", method),
 		)
+		response.Send(&usecase.ResponseChallenge)
 		return
 	}
 	m.metricEndpointProtection.WithLabelValues("success", request.Url).Inc()
@@ -110,8 +108,5 @@ func NewEndpointProtectionMiddleware(
 		[]string{"result", "path"},
 	)
 	prometheus.MustRegister(m.metricEndpointProtection)
-	slog.Debug("EndpointProtectionMiddleware",
-		slog.String("protecting", fmt.Sprintf("%v", protections)),
-	)
 	return &m
 }

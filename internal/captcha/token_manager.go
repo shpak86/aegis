@@ -67,7 +67,7 @@ type PageData struct {
 func (m *CaptchaTokenManager) GetChallenge(fp *usecase.Fingerprint) (payload []byte, err error) {
 	task := m.CaptchaManager.GetTask()
 	m.cmu.Lock()
-	m.challenges[fp.String()] = task
+	m.challenges[fp.String] = task
 	m.cmu.Unlock()
 
 	encodedImages := make([]string, len(task.Images))
@@ -96,7 +96,7 @@ func (m *CaptchaTokenManager) GetToken(fp *usecase.Fingerprint, _, body []byte) 
 		return
 	}
 
-	if task, exists := m.challenges[fp.String()]; !exists || task.Id != solution.Id {
+	if task, exists := m.challenges[fp.String]; !exists || task.Id != solution.Id {
 		err = TokenGenerationError{message: "wrong client"}
 		return
 	}
@@ -113,7 +113,7 @@ func (m *CaptchaTokenManager) GetToken(fp *usecase.Fingerprint, _, body []byte) 
 	m.tmu.Lock()
 	defer m.tmu.Unlock()
 	m.tokens[t] = &token{bytes: []byte(t), time: time.Now(), challenge: &challenge{clientFp: fp, time: time.Now(), challenge: []byte{}}}
-	delete(m.challenges, fp.String())
+	delete(m.challenges, fp.String)
 	return
 }
 

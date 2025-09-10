@@ -133,7 +133,7 @@ func (rl *RpsLimiter) revokeByLimits(tokenCounters *limitedCounter) (revoked uin
 	for token, counter := range tokenCounters.counter {
 		c := counter.Load()
 		if c > tokenCounters.limit {
-			slog.Debug("Revoke",
+			slog.Info("Revoke",
 				slog.String("token", token),
 				slog.Uint64("rps", uint64(counter.Load())),
 				slog.Uint64("limit", uint64(tokenCounters.limit)),

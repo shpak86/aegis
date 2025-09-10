@@ -41,10 +41,9 @@ func (m *ChallengeTokenMiddleware) Handle(request *usecase.Request, response use
 			Body: body,
 		})
 		m.metricChallengeRequest.WithLabelValues("pow").Add(1)
-		slog.Debug("Challenge request",
-			slog.String("address", request.ClientAddress),
-			slog.String("fp", request.Metadata.Fingerprint.Prefix()),
-			slog.String("body", body),
+		slog.Info("Challenge request",
+			slog.String("fp", request.Metadata.Fingerprint.String),
+			slog.String("challenge", body),
 		)
 	} else if request.Url == endpointToken && strings.EqualFold(request.Method, methodPost) {
 		var payload []byte
@@ -55,9 +54,8 @@ func (m *ChallengeTokenMiddleware) Handle(request *usecase.Request, response use
 				Body: "Challenge solution is expected",
 			})
 			m.metricTokenRequest.WithLabelValues("pow", "unprocessable").Add(1)
-			slog.Debug("Unprocessable challenge solution",
-				slog.String("address", request.ClientAddress),
-				slog.String("fp", request.Metadata.Fingerprint.Prefix()),
+			slog.Info("Unprocessable challenge solution",
+				slog.String("fp", request.Metadata.Fingerprint.String),
 				slog.String("solution", request.Body),
 			)
 			return
@@ -69,9 +67,8 @@ func (m *ChallengeTokenMiddleware) Handle(request *usecase.Request, response use
 				Body: "Wrong solution",
 			})
 			m.metricTokenRequest.WithLabelValues("pow", "wrong").Add(1)
-			slog.Debug("Wrong challenge solution",
-				slog.String("address", request.ClientAddress),
-				slog.String("fp", request.Metadata.Fingerprint.Prefix()),
+			slog.Info("Wrong challenge solution",
+				slog.String("fp", request.Metadata.Fingerprint.String),
 				slog.String("solution", request.Body),
 			)
 			return err
@@ -81,9 +78,8 @@ func (m *ChallengeTokenMiddleware) Handle(request *usecase.Request, response use
 			Body: antibotToken,
 		})
 		m.metricTokenRequest.WithLabelValues("pow", "success").Add(1)
-		slog.Debug("Token is issued",
-			slog.String("address", request.ClientAddress),
-			slog.String("fp", request.Metadata.Fingerprint.Prefix()),
+		slog.Info("Token is issued",
+			slog.String("fp", request.Metadata.Fingerprint.String),
 			slog.String("token", antibotToken),
 		)
 	} else if (request.Url == endpointChallenge) && strings.EqualFold(request.Method, methodGet) {

@@ -2,6 +2,7 @@ package fingerprint
 
 import (
 	"aegis/internal/usecase"
+	"fmt"
 	"slices"
 )
 
@@ -16,9 +17,11 @@ func NewAddressHeadersFingerprinter() *AddressHeadersFingerprinter {
 func (ahf *AddressHeadersFingerprinter) Calculate(r *usecase.Request) (fp usecase.Fingerprint) {
 	ipFingerprint := NewIpFingerprint(r)
 	headersFingerprint := NewHeadersFingerprint(r)
+	hash := slices.Concat(ipFingerprint.Hash, headersFingerprint.Hash)
 	fp = usecase.Fingerprint{
-		Type:  usecase.ADDRESS_HEADERS_FP,
-		Value: slices.Concat(ipFingerprint.Hash, headersFingerprint.Hash),
+		Type:   usecase.ADDRESS_HEADERS_FP,
+		Value:  hash,
+		String: fmt.Sprintf("%x", hash),
 	}
 	return
 }
