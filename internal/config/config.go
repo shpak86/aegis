@@ -30,6 +30,8 @@ type Config struct {
 
 	Protections  []ProtectionConfig `json:"protections"`  // List of endpoint protection rules
 	Verification VerificationConfig `json:"verification"` // Client verification settings
+
+	PermanentTokens []string `json:"permanent_tokens"` // List of permanent tokens
 }
 
 // Load reads and parses a JSON configuration file into the receiver.

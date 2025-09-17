@@ -11,5 +11,6 @@
             "path": "^/(index.html)?$",
             "method": "GET"
         }
-    ]
+    ],
+    "permanent_tokens": []
 }

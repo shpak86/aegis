@@ -60,7 +60,7 @@ func DefaultProtectionChain(ctx context.Context, complexity string, protections 
 	return chainer
 }
 
-func CaptchaProtectionChain(ctx context.Context, complexity string, protections []usecase.Protection, assets string) *Chainer {
+func CaptchaProtectionChain(ctx context.Context, complexity string, protections []usecase.Protection, permanentTokens []string, assets string) *Chainer {
 
 	fingerprinter := fingerprint.NewAddressHeadersFingerprinter()
 	var complexityLevel int
@@ -75,6 +75,7 @@ func CaptchaProtectionChain(ctx context.Context, complexity string, protections 
 		complexityLevel = captcha.CaptchaComplexityMedium
 	}
 	tokenManager := captcha.NewCaptchaTokenManager(
+		permanentTokens,
 		complexityLevel,
 		assets,
 	)

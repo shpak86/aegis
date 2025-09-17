@@ -1,5 +1,10 @@
 # Changelog
 
+### Version 0.3.0 (Septemper 17, 2025)
+
+#### Features 
+- Add permanent tokens
+
 ### Version 0.2.3 (Septemper 10, 2025)
 
 #### Features 

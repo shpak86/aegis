@@ -25,7 +25,8 @@ There are following protections confgured:
 - ✅ Token protection
 - ✅ Basic logging and monitoring capabilities
 - ✅ JavaScript challenge mechanism
-- ✅ Captcha challenge
+- ✅ Captcha challenge mechanism
+- ✅ Permanent tokens
 
 ## System Requirements
 
@@ -139,6 +140,7 @@ Aegis should be configured in `/etc/aegis/config.json`.
   - `easy` - easy
   - `medium` - optimal
   - `hard` - hard
+- **`permanent_tokens`** - list of permanint tokens which can be used for trusted clients. Permanent token is a plain string which is somehow should be sent to the clients.
 
 #### Protections
 
@@ -178,7 +180,8 @@ The list of protection definitions with fields:
       "method": "POST",
       "rps": 2
     }
-  ]
+  ],
+  "permanent_tokens": ["0faa199f-935e-411f-b9a8-939ff655bf8a", "1478a524-933b-40f4-b3d4-1d13a18afb1e"]
 }
 ```
 
@@ -187,6 +190,7 @@ In this example:
 - This protection grants access to **index.html** only for clients with a valid token
 - Any client is allowed to **GET** no more than 10 comments per second, and **POST** only 2 comments per second
 - A client is also allowed to make up to 100 **GET** requests to all `/api` endpoints
+- There are two permanent tokens are defined
 
 ### Nginx Configuration
 
@@ -222,7 +226,7 @@ location /api/ {
 ```
 
 ## Aegis Token
-There are two challenges available - chaptcha and js-challenge. 
+There are two challenges available - chaptcha and js-challenge. After passing the test client receives a unique token `AEGIS_TOKEN`. Token is associated with client's fingerprint and can be used only by the client which passed the original challnge. This mechanism makes impossible to share token between bots or pass the cahllenge by the solver host and send tokens to the crawlers.
 
 ### Captcha
 To obtain a token, the client should select images by the text description.
