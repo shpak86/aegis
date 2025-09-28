@@ -3,15 +3,20 @@ package sha_challenge
 import (
 	"aegis/internal/usecase"
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/sha512"
 	"encoding/base64"
+	"html/template"
+	"log/slog"
+	"os"
 	"sync"
 	"time"
 )
 
 const (
 	tokenCookie = "AEGIS_TOKEN"
+	indexPath   = "/usr/share/aegis/sha-challenge/static/index.html"
 )
 
 type TokenGenerationError struct {
@@ -39,11 +44,17 @@ type challenge struct {
 }
 
 type ShaChallengeTokenManager struct {
-	complexity int
-	tokens     map[string]*token
-	challenges map[string]*challenge
-	cmu        sync.RWMutex
-	tmu        sync.RWMutex
+	complexity      int
+	tokens          map[string]*token
+	permanentTokens map[string]struct{}
+	challenges      map[string]*challenge
+	cmu             sync.RWMutex
+	tmu             sync.RWMutex
+	template        *template.Template
+}
+
+type pageData struct {
+	Challenge string
 }
 
 // Extracts token from request
@@ -58,12 +69,24 @@ func (m *ShaChallengeTokenManager) GetChallenge(fp *usecase.Fingerprint) ([]byte
 	m.cmu.Lock()
 	defer m.cmu.Unlock()
 	m.challenges[string(c.challenge)] = &c
-	return c.challenge, nil
+	var content bytes.Buffer
+	challengeString := base64.StdEncoding.EncodeToString(c.challenge)
+	err := m.template.Execute(&content, pageData{
+		Challenge: challengeString,
+	})
+	slog.Info("SHA challenge is prepared", "fingerprint", fp.String, "complexity", m.complexity, "challenge", challengeString)
+	return content.Bytes(), err
 }
 
 // Checks the solution for the specified fingerprint. If the soluiton is correct the new token will be returned.
 // If solution is incorrect or some internal error occured, false will be returned.
-func (m *ShaChallengeTokenManager) GetToken(fp *usecase.Fingerprint, challenge, solution []byte) (t string, err error) {
+func (m *ShaChallengeTokenManager) GetToken(fp *usecase.Fingerprint, payload []byte) (t string, err error) {
+	if len(payload) < 10 {
+		err = TokenGenerationError{message: "wrong solution"}
+		return
+	}
+	message, err := base64.StdEncoding.DecodeString(string(payload))
+	challenge, solution := message[:m.complexity], message[m.complexity:]
 	m.cmu.Lock()
 	defer m.cmu.Unlock()
 	challengeString := string(challenge)
@@ -89,6 +112,7 @@ func (m *ShaChallengeTokenManager) GetToken(fp *usecase.Fingerprint, challenge, 
 	m.tmu.Lock()
 	defer m.tmu.Unlock()
 	m.tokens[t] = &token{bytes: []byte(t), time: time.Now(), challenge: c}
+	slog.Info("Token is issued", "fingerprint", fp.String, "token", t, "challenge", challenge, "solution", solution)
 	delete(m.challenges, challengeString)
 	return
 }
@@ -97,6 +121,9 @@ func (m *ShaChallengeTokenManager) GetToken(fp *usecase.Fingerprint, challenge, 
 func (m *ShaChallengeTokenManager) Validate(clientFp *usecase.Fingerprint, token string) bool {
 	m.tmu.RLock()
 	defer m.tmu.RUnlock()
+	if _, exists := m.permanentTokens[token]; exists {
+		return true
+	}
 	storedToken, exists := m.tokens[token]
 	if !exists {
 		return false
@@ -113,6 +140,7 @@ func (m *ShaChallengeTokenManager) Revoke(token string) bool {
 	defer m.tmu.Unlock()
 	_, revoked := m.tokens[token]
 	delete(m.tokens, token)
+	slog.Debug("Revoked token", "token", token)
 	return revoked
 }
 
@@ -121,11 +149,49 @@ func (m *ShaChallengeTokenManager) GetComplexity() int {
 	return m.complexity
 }
 
-func NewShaChallengeTokenManager(complexity int) *ShaChallengeTokenManager {
+func (m *ShaChallengeTokenManager) Serve(ctx context.Context) {
+	m.cmu.Lock()
+	defer m.cmu.Unlock()
+	ticker := time.NewTicker(time.Second)
+	select {
+	case <-ticker.C:
+		ticker.Stop()
+		return
+	case <-ctx.Done():
+		for k, v := range m.challenges {
+			if time.Since(v.time) > time.Minute {
+				delete(m.challenges, k)
+			}
+		}
+	}
+}
+
+func NewShaChallengeTokenManager(permanentTokens []string, complexity string) *ShaChallengeTokenManager {
+	var complexityLevel int
+	switch complexity {
+	case "easy":
+		complexityLevel = 1
+	case "medium":
+		complexityLevel = 2
+	case "hard":
+		complexityLevel = 3
+	default:
+		complexityLevel = 2
+	}
+	pageContent, err := os.ReadFile(indexPath)
+	if err != nil {
+		slog.Error("Unable to read template: " + indexPath)
+		os.Exit(1)
+	}
 	tm := ShaChallengeTokenManager{
-		complexity: complexity,
-		tokens:     make(map[string]*token),
-		challenges: make(map[string]*challenge),
+		complexity:      complexityLevel,
+		tokens:          make(map[string]*token),
+		challenges:      make(map[string]*challenge),
+		template:        template.Must(template.New("sha-challenge").Parse(string(pageContent))),
+		permanentTokens: make(map[string]struct{}),
+	}
+	for i := range permanentTokens {
+		tm.permanentTokens[permanentTokens[i]] = struct{}{}
 	}
 	return &tm
 }

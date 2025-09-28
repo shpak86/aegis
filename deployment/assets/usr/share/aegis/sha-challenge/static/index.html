@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Protection</title>
+    <style>
+        /* Minimalist and simple styling */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .message {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            color: #2c3e50;
+        }
+
+        /* Simple CSS loader */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .status {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            margin-top: 1rem;
+        }
+
+        /* Back button (hidden by default) */
+        .back-button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            display: none;
+            transition: background-color 0.3s ease;
+        }
+
+        .back-button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="loader" id="loader"></div>
+        <div class="message"></div>
+        <div class="status" id="status">Checking...</div>
+        <button class="back-button" id="backButton" onclick="goBack()">Continue</button>
+    </div>
+
+    <script>
+        /**
+         * Function to navigate back to the previous page
+         * Can be called after the pow.js script completes its work
+         */
+        function goBack() {
+            window.location.href = '/';
+            return;
+            // Check if there's a previous page in browser history
+            // if (window.history.length > 1) {
+            //     window.history.back();
+            // } else {
+            //     // If no history, redirect to a default page or close
+            //     // window.close();
+            //     window.location.href = '/';
+            // }
+        }
+
+        /**
+         * Function to show the back button and update status
+         * This can be called from pow.js when work is complete
+         */
+        function showBackButton() {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('status').textContent = 'Done';
+            document.getElementById('backButton').style.display = 'inline-block';
+        }
+
+        /**
+         * Function to update status text
+         * This can be called from pow.js to show progress
+         */
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+        (function () {
+            'use strict';
+
+            function setCookie(name, value, days = 365) {
+                const expires = new Date();
+                expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+                document.cookie = name + "=" + value + ";expires=" + expires.toUTCString() + ";path=/";
+            }
+
+            // Base64 utility functions
+            function base64ToUint8Array(base64) {
+                const binaryString = atob(base64);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                return bytes;
+            }
+
+            function uint8ArrayToBase64(uint8Array) {
+                let binaryString = '';
+                uint8Array.forEach(byte => {
+                    binaryString += String.fromCharCode(byte);
+                });
+                return btoa(binaryString);
+            }
+
+            // Generate random bytes
+            function generateRandomBytes(length) {
+                const array = new Uint8Array(length);
+                crypto.getRandomValues(array);
+                return array;
+            }
+
+            // Check if array1 starts with array2
+            function arrayStartsWith(array1, array2) {
+                if (array2.length > array1.length) return false;
+                for (let i = 0; i < array2.length; i++) {
+                    if (array1[i] !== array2[i]) return false;
+                }
+                return true;
+            }
+
+            // Proof of work implementation
+            async function pow(challenge) {
+                try {
+                    const suffix = base64ToUint8Array(challenge);
+
+                    while (true) {
+                        const solution = generateRandomBytes(10);
+                        const hashBuffer = await crypto.subtle.digest('SHA-512', solution);
+                        const hash = new Uint8Array(hashBuffer);
+
+                        // Check if hash starts with suffix
+                        if (arrayStartsWith(hash, suffix)) {
+                            // Concatenate suffix and solution
+                            const result = new Uint8Array(suffix.length + solution.length);
+                            result.set(suffix);
+                            result.set(solution, suffix.length);
+                            return uint8ArrayToBase64(result);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error in pow:', error);
+                    return null;
+                }
+            }
+
+            // Refresh token function
+            async function refreshToken() {
+                try {
+                    const challenge = {{.Challenge }};
+                    // Step 2: Calculate proof of work solution
+                    const solution = await pow(challenge.trim());
+                    if (!solution) {
+                        throw new Error('Failed to solve proof of work challenge');
+                    }
+
+                    // Step 3: POST request to /aegis/token with solution
+                    const postResponse = await fetch('/aegis/token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'text/plain',
+                        },
+                        body: solution
+                    });
+
+                    if (postResponse.status === 200) {
+                        // Step 4: Success - save token to cookie
+                        const token = await postResponse.text();
+                        setCookie('AEGIS_TOKEN', token.trim());
+                        showBackButton();
+                        window.location.href = '/';
+                        goBack();
+                    } else {
+                        // Step 5: Error handling
+                        const errorText = await postResponse.text();
+                        throw new Error("Server returned error: HTTP " + postResponse.status + " - " + errorText);
+                    }
+
+                } catch (error) {
+                    console.error('Error refreshing token:', error);
+                } finally {
+                }
+            }
+
+            function initializePow() {
+                console.log('pow.js script has started execution');
+                console.log('Bot protection check initiated');
+                if (typeof updateStatus === 'function') {
+                    updateStatus('Checking...');
+                }
+
+                refreshToken();
+            }
+
+            function cleanup() {
+                console.log('pow.js cleanup completed');
+            }
+
+            window.powComplete = function () {
+                console.log('pow.js work marked as complete');
+                cleanup();
+                return true;
+            };
+
+            // Initialize the script when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initializePow);
+            } else {
+                // DOM is already loaded
+                initializePow();
+            }
+
+            console.log('pow.js script loaded and ready');
+        })();
+    </script>
+</body>
+
+</html>

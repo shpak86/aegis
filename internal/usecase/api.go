@@ -39,4 +39,6 @@ var ResponseChallenge = Response{
 	Body:    "Forbidden",
 }
 
-var ResponseContinue = Response{}
+var ResponseContinue = Response{
+	Code: http.StatusNoContent,
+}

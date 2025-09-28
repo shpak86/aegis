@@ -1,8 +1,13 @@
 package main
 
 import (
+	"aegis/internal/captcha"
 	"aegis/internal/config"
+	"aegis/internal/fingerprint"
+	"aegis/internal/limiter"
+	"aegis/internal/middleware"
 	"aegis/internal/server"
+	"aegis/internal/sha_challenge"
 	"aegis/internal/usecase"
 	"aegis/internal/version"
 	"context"
@@ -35,6 +40,62 @@ func prepareLogger(level string) {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &opts)))
 }
 
+func startServer(ctx context.Context, cancel context.CancelFunc, cfg *config.Config) *server.ApiServer {
+
+	// Token manager
+	var tokenManager usecase.TokenManager
+	switch cfg.Verification.Type {
+	case "js-challenge":
+		m := sha_challenge.NewShaChallengeTokenManager(
+			cfg.PermanentTokens,
+			cfg.Verification.Complexity,
+		)
+		go m.Serve(ctx)
+		tokenManager = m
+	case "captcha":
+		m := captcha.NewCaptchaTokenManager(
+			cfg.PermanentTokens,
+			cfg.Verification.Complexity,
+		)
+		go m.Serve(ctx)
+		tokenManager = m
+	default:
+		slog.Error("Unknown verification type", "verification", cfg.Verification.Type)
+		os.Exit(1)
+	}
+
+	// Rate limiter
+	rateLimiter := limiter.NewRpsLimiter(ctx, tokenManager)
+	var protections []usecase.Protection
+	for i := range cfg.Protections {
+		protection := usecase.Protection(cfg.Protections[i])
+		protections = append(protections, protection)
+		rateLimiter.AddLimit(protection)
+	}
+	go rateLimiter.Serve()
+
+	// Fingerprint calculator
+	fingerprintCalculator := fingerprint.NewRequestFingerprintCalculator()
+
+	// Chain
+	chain := middleware.NewChain(
+		middleware.NewHttpFingerprintEnricher(fingerprintCalculator),
+		middleware.NewPathProtector(fingerprintCalculator, rateLimiter, tokenManager, protections),
+	)
+	apiServer := server.NewApiServer(cfg.Address, chain, fingerprintCalculator, tokenManager)
+	go func() {
+		slog.Info("Serving API " + cfg.Address)
+		err := apiServer.Serve()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("Server stopped abnormal")
+		} else {
+			slog.Info("Server stopped")
+		}
+		cancel()
+	}()
+	return apiServer
+}
+
 func main() {
 	var err error
 
@@ -53,49 +114,13 @@ func main() {
 		slog.Error("Failed to prepare app config", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-
-	appCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	prepareLogger(cfg.Logger.Level)
-	protections := make([]usecase.Protection, len(cfg.Protections))
-	for i := range cfg.Protections {
-		protections[i] = usecase.Protection(cfg.Protections[i])
-	}
 
-	server := server.NewServer(
-		appCtx,
-		cfg.Address,
-		protections,
-		cfg.PermanentTokens,
-		cfg.Verification.Type,
-		cfg.Verification.Complexity,
-	)
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	serverError := make(chan error, 1)
-
-	go func() {
-		slog.Info("Starting Aegis server", slog.String("address", cfg.Address))
-		err = server.Serve()
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serverError <- err
-		} else {
-			slog.Info("Server stopped")
-		}
-	}()
-
-	select {
-	case err := <-serverError:
-		slog.Error("Server", slog.String("error", err.Error()))
-	case <-sigChan:
-		slog.Info("Shutting down server")
-	}
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	appCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+	apiServer := startServer(appCtx, cancel, &cfg)
+	<-appCtx.Done()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		slog.Error("Shutdown server", slog.String("error", err.Error()))
-		return
-	}
+	apiServer.Shutdown(shutdownCtx)
 }

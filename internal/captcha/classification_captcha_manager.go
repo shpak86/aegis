@@ -29,28 +29,26 @@ type templatesConfiguration struct {
 }
 
 type ClassificationCaptchaManager struct {
-	ctx                        context.Context
-	temlates                   []CaptchaTask
-	tasks                      map[uint32]*CaptchaTask
-	complexity                 int
-	templatesConfigurationPath string
-	mu                         sync.Mutex
+	temlates   []CaptchaTask
+	tasks      map[uint32]*CaptchaTask
+	complexity int
+	mu         sync.Mutex
 }
 
 func (c *ClassificationCaptchaManager) cleanup() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for id, task := range c.tasks {
-		if time.Since(task.ts) > time.Hour { // todo: debug
+		if time.Since(task.ts) > time.Minute {
 			delete(c.tasks, id)
 		}
 	}
 }
 
-func (c *ClassificationCaptchaManager) Serve() (err error) {
+func (c *ClassificationCaptchaManager) Serve(ctx context.Context) (err error) {
 	// Load templates configuration
 	var templates templatesConfiguration
-	content, err := os.ReadFile(c.templatesConfigurationPath)
+	content, err := os.ReadFile("/etc/aegis/captcha.json")
 	if err != nil {
 		return
 	}
@@ -66,7 +64,7 @@ func (c *ClassificationCaptchaManager) Serve() (err error) {
 	ticker := time.NewTicker(time.Second)
 	for {
 		select {
-		case <-c.ctx.Done():
+		case <-ctx.Done():
 			ticker.Stop()
 			return
 		case <-ticker.C:
@@ -140,13 +138,10 @@ func (c *ClassificationCaptchaManager) Verify(solution *CaptchaSolution) bool {
 	return isValid
 }
 
-func NewClassificationCaptchaManager(ctx context.Context, complexity int, config string) *ClassificationCaptchaManager {
+func NewClassificationCaptchaManager(complexity int) *ClassificationCaptchaManager {
 	manager := ClassificationCaptchaManager{
-		ctx:                        ctx,
-		complexity:                 complexity,
-		templatesConfigurationPath: config,
-		tasks:                      make(map[uint32]*CaptchaTask),
+		complexity: complexity,
+		tasks:      make(map[uint32]*CaptchaTask),
 	}
-
 	return &manager
 }

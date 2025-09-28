@@ -9,7 +9,7 @@ const (
 type TokenManager interface {
 	ExtractToken(*Request) (string, bool)
 	GetChallenge(fp *Fingerprint) ([]byte, error)
-	GetToken(fp *Fingerprint, challenge, solution []byte) (string, error)
+	GetToken(fp *Fingerprint, solution []byte) (string, error)
 	Validate(*Fingerprint, string) bool
 	Revoke(string) bool
 }
@@ -18,14 +18,6 @@ type ResponseSender interface {
 	Send(*Response) error
 }
 
-type Middleware interface {
-	Handle(request *Request, response ResponseSender) error
-}
-
-const (
-	ADDRESS_HEADERS_FP = iota
-)
-
 // Fingerprint of some type
 type Fingerprint struct {
 	Type   int
@@ -33,7 +25,25 @@ type Fingerprint struct {
 	String string
 }
 
-// Calculates a fingerprint
-type FingerprintCalculator interface {
-	Calculate(r *Request) Fingerprint
+type RequestContext[T any] struct {
+	Fingerprint Fingerprint
+	Factors     T
+}
+
+type FingerprintCalculator[T any] interface {
+	Calculate(*T) Fingerprint
+}
+
+type Chain[T any] interface {
+	Execute(RequestContext[T])
+}
+
+type HttpFactors struct {
+	Cookies       map[string]string
+	Headers       map[string]string
+	Method        string
+	Path          string
+	ClientAddress string
+	Token         string
+	Body          []byte
 }

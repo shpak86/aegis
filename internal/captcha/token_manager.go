@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"html/template"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 const (
 	tokenCookie = "AEGIS_TOKEN"
+	indexPath   = "/usr/share/aegis/captcha/static/index.html"
 )
 
 // TokenGenerationError represents errors during token generation operations
@@ -47,13 +49,13 @@ type challenge struct {
 
 // CaptchaTokenManager manages CAPTCHA challenges and antibot tokens
 type CaptchaTokenManager struct {
-	complexity     int
-	tokens         map[string]*token
-	permnentTokens map[string]bool
-	challenges     map[string]*CaptchaTask
-	cmu            sync.RWMutex
-	tmu            sync.RWMutex
-	template       *template.Template
+	complexity      int
+	tokens          map[string]*token
+	permanentTokens map[string]struct{}
+	challenges      map[string]*CaptchaTask
+	cmu             sync.RWMutex
+	tmu             sync.RWMutex
+	template        *template.Template
 
 	CaptchaManager *ClassificationCaptchaManager
 }
@@ -102,6 +104,7 @@ func (m *CaptchaTokenManager) GetChallenge(fp *usecase.Fingerprint) (payload []b
 		Description: task.Description,
 		Images:      encodedImages,
 	})
+	slog.Info("Captcha challenge is prepared", "fingerprint", fp.String, "complexity", m.complexity, "id", task.Id, "images", task.Images, "solution", task.Solution, "description", task.Description)
 	return content.Bytes(), nil
 }
 
@@ -113,7 +116,7 @@ func (m *CaptchaTokenManager) GetChallenge(fp *usecase.Fingerprint) (payload []b
 // Returns:
 //   - string:   Generated antibot token
 //   - error:    Non-nil if solution is invalid or challenge not found
-func (m *CaptchaTokenManager) GetToken(fp *usecase.Fingerprint, _, body []byte) (t string, err error) {
+func (m *CaptchaTokenManager) GetToken(fp *usecase.Fingerprint, body []byte) (t string, err error) {
 	var solution CaptchaSolution
 	err = json.Unmarshal([]byte(body), &solution)
 	if err != nil {
@@ -138,6 +141,7 @@ func (m *CaptchaTokenManager) GetToken(fp *usecase.Fingerprint, _, body []byte) 
 	defer m.tmu.Unlock()
 	m.tokens[t] = &token{bytes: []byte(t), time: time.Now(), challenge: &challenge{clientFp: fp, time: time.Now(), challenge: []byte{}}}
 	delete(m.challenges, fp.String)
+	slog.Info("Token is issued", "fingerprint", fp.String, "token", t, "id", solution.Id)
 	return
 }
 
@@ -149,7 +153,7 @@ func (m *CaptchaTokenManager) GetToken(fp *usecase.Fingerprint, _, body []byte) 
 // Returns:
 //   - bool: True if token is permanent or valid and matches the fingerprint
 func (m *CaptchaTokenManager) Validate(clientFp *usecase.Fingerprint, token string) bool {
-	if _, exists := m.permnentTokens[token]; exists {
+	if _, exists := m.permanentTokens[token]; exists {
 		return true
 	}
 	m.tmu.RLock()
@@ -185,8 +189,8 @@ func (m *CaptchaTokenManager) GetComplexity() int {
 }
 
 // Serve runs background tasks for the CAPTCHA manager
-func (m *CaptchaTokenManager) Serve() {
-	m.CaptchaManager.Serve()
+func (m *CaptchaTokenManager) Serve(ctx context.Context) {
+	m.CaptchaManager.Serve(ctx)
 }
 
 // NewCaptchaTokenManager creates a new CAPTCHA token manager instance
@@ -196,16 +200,34 @@ func (m *CaptchaTokenManager) Serve() {
 //
 // Returns:
 //   - *CaptchaTokenManager: Initialized manager with preloaded template
-func NewCaptchaTokenManager(permanentTokens []string, complexity int, templatesConfigPath string) *CaptchaTokenManager {
+func NewCaptchaTokenManager(permanentTokens []string, complexity string) *CaptchaTokenManager {
+	var complexityLevel int
+	switch complexity {
+	case "easy":
+		complexityLevel = CaptchaComplexityEasy
+	case "medium":
+		complexityLevel = CaptchaComplexityMedium
+	case "hard":
+		complexityLevel = CaptchaComplexityHard
+	default:
+		complexityLevel = CaptchaComplexityMedium
+	}
+
+	pageContent, err := os.ReadFile(indexPath)
+	if err != nil {
+		slog.Error("Unable to read template: " + indexPath)
+		os.Exit(1)
+	}
+
 	tm := CaptchaTokenManager{
-		CaptchaManager: NewClassificationCaptchaManager(context.Background(), complexity, templatesConfigPath),
-		tokens:         make(map[string]*token),
-		permnentTokens: make(map[string]bool),
-		challenges:     make(map[string]*CaptchaTask),
-		template:       template.Must(template.New("captcha").Parse(captchaPage)),
+		CaptchaManager:  NewClassificationCaptchaManager(complexityLevel),
+		tokens:          make(map[string]*token),
+		permanentTokens: make(map[string]struct{}),
+		challenges:      make(map[string]*CaptchaTask),
+		template:        template.Must(template.New("captcha").Parse(string(pageContent))),
 	}
 	for i := range permanentTokens {
-		tm.permnentTokens[permanentTokens[i]] = true
+		tm.permanentTokens[permanentTokens[i]] = struct{}{}
 	}
 	return &tm
 }
