@@ -1,5 +1,10 @@
 # Changelog
 
+### Version 0.4.0 (Septemper 29, 2025)
+
+#### Features 
+- Aegis works without nginx modules like standalone service.
+
 ### Version 0.3.0 (Septemper 17, 2025)
 
 #### Features 

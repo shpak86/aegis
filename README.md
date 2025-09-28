@@ -6,9 +6,9 @@
 
 ### What is Aegis?
 
-Aegis is a bot detection and protection system that adds a layer of security to an Nginx or Angie server. It consists of an nginx module along with the Aegis service. The module intercepts requests and controls their processing, while the Aegis service analyzes traffic and decides whether to block client requests based on the collected data.
+Aegis is a bot detection and protection system that adds a layer of security to web or proxy servers. It works as standalone service and allows to webservers like Nginx and Apache to check for automated script requests.
 
-The system operates in real time, blocking bots 1–2 seconds after detection. Configuration is managed via directives in plain text config files. Aegis provides Prometheus metrics and can be easily integrated with monitoring systems. Aegis can run as a sidecar on the same server as nginx or as a standalone service, making it easy to integrate into existing infrastructure.
+The system operates in real time, blocking bots 1–2 seconds after detection. Configuration is managed via directives in plain text config files. Aegis provides Prometheus metrics and can be easily integrated with monitoring systems. Aegis works as a standalone service on the same server as nginx or as a remote service, making it easy to integrate into existing infrastructure.
 
 ### Playground
 
@@ -38,45 +38,22 @@ There are following protections confgured:
 
 ## Architecture
 
-```
-┌─────────────┐ HTTP Request ┌─────────────────────────┐
-│   Client    │ ───────────► │           nginx         │
-└─────────────┘              │ (ngx_http_aegis_module) │
-                             └──────────┬──────────────┘
-                                        │
-                              Request + Client metadata
-                                        ▼
-                              ┌─────────────────┐
-                              │                 │
-                              │  Aegis Service  │
-                              │                 │
-                              └─────────┬───────┘
-                                        │
-                                    Verdict
-                                        ▼
-┌─────────────┐   Response    ┌───────────────────┐
-│   Client    │ ◄──────────── │      nginx:       │
-└─────────────┘               │  - Block (4xx)    │
-                              │  - Redirect (3xx) │
-                              │  - Allow (proxy)  │
-                              └───────────────────┘
-```
 
 ## Installation
 
 ### Manual Installation
 
-Build the package using build script. You can specify Nginx version using -n flag. By default Nginx 1.28.0 is used.
+Build the package using build script. You can specify Aegis version using -a flag.
 
 ```bash
 cd deployment
-./build.sh -n 1.24.0
+./build.sh -a 0.4.0
 ```
 
-Script will print path to the created package, for example: `Build completed: /home/user/repos/aegis/deployment/build/aegis_nginx_1.28.0-0.2.0.tar.gz`. Extract this package as a privileged user. 
+Script will print path to the created package, for example: `Build completed: aegis-0.4.0.tar.gz`. Extract this package as a privileged user. 
 
 ```bash
-sudo tar -C / -vxf build/aegis_nginx_1.28.0-0.2.0.tar.gz 
+sudo tar -C / -vxf build/aegis-0.4.0.tar.gz 
 ```
 
 Enable and start aegis.
@@ -86,8 +63,6 @@ systemctl daemon-reload
 systemctl enable aegis
 systemctl start aegis
 ```
-
-Nginx module is extracting to `/usr/share/nginx/modules/ngx_http_aegis_module.so`.
 
 ## Management
 
@@ -106,17 +81,9 @@ systemctl stop aegis
 journalctl -u aegis
 ```
 
-### Nginx
-
-The module writes messages into the standard Nginx log using the "aegis" tag. To filter these messages, execute the command:
-
-```bash
-tail -f /var/log/nginx/error.log | grep aegis
-```
-
 ## Monitoring
 
-Aegis serves `http://localhost:6996/metrics` endpoint to provide Prometheus metrics.
+Aegis serves `http://localhost:2048/metrics` endpoint to provide Prometheus metrics.
 
 Available metrics:
 - `antibot_response`
@@ -133,7 +100,7 @@ Aegis should be configured in `/etc/aegis/config.json`.
 
 #### Main Parameters
 
-- **`address`** - allows you to change the address which antibot is serving. Bu default address is **localhost:6996**
+- **`address`** - allows you to change the address which antibot is serving. Bu default address is **localhost:2048**
 - **`logger.level`** - configures verbosity of the logger. Possible values: `DEBUG`, `INFO`, `WARNING`, `ERROR`
 - **`verification.type`** - verification method. Possible values: `js-challenge` or `captcha`
 - **`verification.complexity`** - complexity of the challenge. For JS-challenge complexity determines the time required for the solution. For captcha it determines the number of images.
@@ -194,35 +161,82 @@ In this example:
 
 ### Nginx Configuration
 
-Load aegis module with the `load_module` directive:
+Aegis works as an auth service so configure nginx for such kind of interaction.
 
-```nginx
-load_module /usr/share/nginx/modules/ngx_http_aegis_module.so;
-```
+1. Configure `/aegis/` locations
+  ```nginx
+  # This location is used for token issuing and verification
+  location /aegis/token {
+    proxy_pass http://localhost:6996/aegis/token;
+    
+    proxy_set_header X-Original-Url $request_uri;
+    proxy_set_header X-Original-Method $request_method;
+    proxy_set_header X-Original-Addr $remote_addr;
+  }
 
-Aegis protects only endpoints with the `aegis_enable` directive, so you need to add this directive to all endpoints you want to protect.
+  # This is internal location for requests analisys
+  location = /aegis/auth {
+    internal;
 
-**Important:** The `/aegis` endpoint is served by the antibot itself for service purposes, so it **must** be added to the configuration.
+    proxy_pass http://127.0.0.1:6996/aegis/handlers/http;
+    
+    # proxy headers
+    proxy_set_header X-Original-Url $request_uri;
+    proxy_set_header X-Original-Method $request_method;
+    proxy_set_header X-Original-Addr $remote_addr;
+    # Perfomance tuning
+    proxy_buffering off;
+    proxy_connect_timeout 1s;
+    proxy_read_timeout 3s;
+  }
 
-```nginx
-# Antibot endpoint (required)
-location /aegis/ {
-    aegis_enable;
-}
+  # Redirect response      
+  location @handle_redirect {
+    return 302 $auth_redirect;
+  }
+  
+  # Error respose
+  location @handle_error {
+    return 502 "Bad Gateway";
+  }
+  ```
+2. Configure proxy for all protected locations
+  ```nginx
+  # Authorize all / and /index.html requests using Aegis service (/aegis/auth)
+  location ~ ^/(index.html)?$ {
+    auth_request /aegis/auth;
 
-# Static files
-location /downloads/ {
-    aegis_enable;
-}
+    proxy_pass http://localhost:8081;
+    
+    auth_request_set $auth_redirect $upstream_http_location;
+    auth_request_set $auth_status $upstream_status;
+  
+    # Redirect to the Aegis challenge if response code is 4xx
+    error_page 401 402 403 404 405 406 407 408 409 410 411 412 413 414 415 416 417 = @handle_redirect;
+    error_page 500 502 503 504 = @handle_error;
+    
+    proxy_set_header X-Original-Url $request_uri;
+    proxy_set_header X-Original-Method $request_method;
+    proxy_set_header X-Original-Addr $remote_addr;
+  }
 
-# Reverse proxy
-location /api/ {
-    aegis_enable;
-    proxy_pass http://backend-host/api/;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-}
+  # Authorize all requests on /articles/ using Aegis service (/aegis/auth)
+  location /articles/ {
+    auth_request /aegis/auth;
+
+    proxy_pass http://localhost:8081/articles/;
+    
+    auth_request_set $auth_redirect $upstream_http_location;
+    auth_request_set $auth_status $upstream_status;
+
+    # Redirect to the Aegis challenge if response code is 4xx
+    error_page 401 402 403 404 405 406 407 408 409 410 411 412 413 414 415 416 417 = @handle_redirect;
+    error_page 500 502 503 504 = @handle_error;
+    
+    proxy_set_header X-Original-Url $request_uri;
+    proxy_set_header X-Original-Method $request_method;
+    proxy_set_header X-Original-Addr $remote_addr;
+  }
 ```
 
 ## Aegis Token
@@ -236,7 +250,6 @@ To obtain a token, the client must perform a hash computation with a specified p
 
 ## Support
 
-- **Supported Nginx versions:** 1.24+, 1.26+, 1.28+
 - **Supported OS:** Any Linux distribution
 - **Deployment modes:** Sidecar on the same server with nginx or standalone service
 

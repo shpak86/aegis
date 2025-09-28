@@ -68,7 +68,7 @@ func (c *Config) Load(file string) (err error) {
 	}
 
 	if c.Address == "" {
-		c.Address = "localhost:6996"
+		c.Address = "localhost:2048"
 	}
 
 	if c.Verification.Type == "" {
