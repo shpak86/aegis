@@ -99,7 +99,7 @@ func startServer(ctx context.Context, cancel context.CancelFunc, cfg *config.Con
 func main() {
 	var err error
 
-	versionProvider := version.NewVersionProvider("0.4.0")
+	versionProvider := version.NewVersionProvider("0.4.1")
 
 	versionFlag := flag.Bool("version", false, "Print Aegis version")
 	configPath := flag.String("config", "/etc/aegis/config.json", "Configuration path")

@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"html/template"
+	"image/jpeg"
 	"log/slog"
 	"os"
 	"sync"
@@ -90,12 +91,20 @@ func (m *CaptchaTokenManager) GetChallenge(fp *usecase.Fingerprint) (payload []b
 	m.cmu.Unlock()
 
 	encodedImages := make([]string, len(task.Images))
+	image := bytes.Buffer{}
 	for i, imagePath := range task.Images {
-		var image []byte
-		if image, err = os.ReadFile(imagePath); err != nil {
+		var f *os.File
+		f, err = os.Open(imagePath)
+		if err != nil {
 			return
 		}
-		encodedImages[i] = base64.StdEncoding.EncodeToString(image)
+		defer f.Close()
+
+		img, _ := jpeg.Decode(f)
+		noisedImage := addUniformNoise(img, 20)
+		image.Reset()
+		err = jpeg.Encode(&image, noisedImage, &jpeg.Options{Quality: 50})
+		encodedImages[i] = base64.StdEncoding.EncodeToString(image.Bytes())
 	}
 
 	var content bytes.Buffer
