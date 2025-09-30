@@ -83,41 +83,43 @@ func (s *ApiServer) Serve() error {
 	mux.HandleFunc("GET /aegis/token", func(w http.ResponseWriter, r *http.Request) {
 		rc, err := requestContext(r)
 		if err != nil {
-			slog.Error("Get challenge", "error", err)
+			slog.Error("Get challenge", "error", err, "context", rc)
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 		fp := s.fingerprintCalculator.Calculate(&rc.Factors)
 		payload, err := s.tokenManager.GetChallenge(&fp)
 		if err != nil {
-			slog.Error("Get challenge", "error", err)
+			slog.Error("Get challenge", "error", err, "context", rc)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		slog.Debug("GET /aegis/token", "rc", rc)
 		w.Write(payload)
 	})
 
 	mux.HandleFunc("POST /aegis/token", func(w http.ResponseWriter, r *http.Request) {
 		rc, err := requestContext(r)
 		if err != nil {
-			slog.Error("Get token", "error", err)
+			slog.Error("Get token", "error", err, "context", rc)
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
 		fp := s.fingerprintCalculator.Calculate(&rc.Factors)
 		payload, err := s.tokenManager.GetToken(&fp, rc.Factors.Body)
 		if err != nil {
-			slog.Error("Get token", "error", err)
+			slog.Error("Get token", "error", err, "context", rc)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		slog.Debug("POST /aegis/token", "rc", rc)
 		w.Write([]byte(payload))
 	})
 
 	mux.HandleFunc("/aegis/handlers/http", func(w http.ResponseWriter, r *http.Request) {
 		rc, err := requestContext(r)
 		if err != nil {
-			slog.Error("HTTP request", "error", err)
+			slog.Error("HTTP request", "error", err, "context", rc)
 			w.WriteHeader(http.StatusUnprocessableEntity)
 			return
 		}
