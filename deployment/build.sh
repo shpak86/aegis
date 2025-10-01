@@ -4,7 +4,7 @@ set -euo pipefail
 IFS=$'\n\t'
 
 # Default versions can be set via environment variables
-AEGIS_VERSION="0.4.1"
+AEGIS_VERSION="0.4.2"
 BUILD_DIR="$(pwd)/build"
 
 # List of required utilities

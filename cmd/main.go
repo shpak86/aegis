@@ -53,12 +53,11 @@ func startServer(ctx context.Context, cancel context.CancelFunc, cfg *config.Con
 		go m.Serve(ctx)
 		tokenManager = m
 	case "captcha":
-		m := captcha.NewCaptchaTokenManager(
+		tokenManager = captcha.NewCaptchaTokenManager(
+			ctx,
 			cfg.PermanentTokens,
 			cfg.Verification.Complexity,
 		)
-		go m.Serve(ctx)
-		tokenManager = m
 	default:
 		slog.Error("Unknown verification type", "verification", cfg.Verification.Type)
 		os.Exit(1)
@@ -99,7 +98,7 @@ func startServer(ctx context.Context, cancel context.CancelFunc, cfg *config.Con
 func main() {
 	var err error
 
-	versionProvider := version.NewVersionProvider("0.4.1")
+	versionProvider := version.NewVersionProvider("0.4.2")
 
 	versionFlag := flag.Bool("version", false, "Print Aegis version")
 	configPath := flag.String("config", "/etc/aegis/config.json", "Configuration path")

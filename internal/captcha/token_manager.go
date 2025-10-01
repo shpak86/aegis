@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"html/template"
-	"image/jpeg"
 	"log/slog"
 	"os"
 	"sync"
@@ -53,12 +52,12 @@ type CaptchaTokenManager struct {
 	complexity      int
 	tokens          map[string]*token
 	permanentTokens map[string]struct{}
-	challenges      map[string]*CaptchaTask
+	challenges      map[string]*Challenge
 	cmu             sync.RWMutex
 	tmu             sync.RWMutex
 	template        *template.Template
 
-	CaptchaManager *ClassificationCaptchaManager
+	CaptchaManager *CaptchaManager
 }
 
 // ExtractToken extracts the AEGIS_TOKEN cookie from the request
@@ -85,35 +84,17 @@ type PageData struct {
 //   - []byte: Rendered HTML content with base64-encoded images
 //   - error:  Non-nil if image reading fails
 func (m *CaptchaTokenManager) GetChallenge(fp *usecase.Fingerprint) (payload []byte, err error) {
-	task := m.CaptchaManager.GetTask()
+	task := m.CaptchaManager.Task()
 	m.cmu.Lock()
 	m.challenges[fp.String] = task
 	m.cmu.Unlock()
-
-	encodedImages := make([]string, len(task.Images))
-	image := bytes.Buffer{}
-	for i, imagePath := range task.Images {
-		var f *os.File
-		f, err = os.Open(imagePath)
-		if err != nil {
-			return
-		}
-		defer f.Close()
-
-		img, _ := jpeg.Decode(f)
-		noisedImage := addUniformNoise(img, 20)
-		image.Reset()
-		err = jpeg.Encode(&image, noisedImage, &jpeg.Options{Quality: 50})
-		encodedImages[i] = base64.StdEncoding.EncodeToString(image.Bytes())
-	}
-
 	var content bytes.Buffer
 	m.template.Execute(&content, PageData{
 		CaptchaId:   task.Id,
 		Description: task.Description,
-		Images:      encodedImages,
+		Images:      task.Images,
 	})
-	slog.Info("Captcha challenge is prepared", "fingerprint", fp.String, "complexity", m.complexity, "id", task.Id, "images", task.Images, "solution", task.Solution, "description", task.Description)
+	slog.Info("Captcha challenge is prepared", "fingerprint", fp.String, "complexity", m.complexity, "id", task.Id, "images", len(task.Images), "solution", task.Solution, "description", task.Description)
 	return content.Bytes(), nil
 }
 
@@ -126,7 +107,7 @@ func (m *CaptchaTokenManager) GetChallenge(fp *usecase.Fingerprint) (payload []b
 //   - string:   Generated antibot token
 //   - error:    Non-nil if solution is invalid or challenge not found
 func (m *CaptchaTokenManager) GetToken(fp *usecase.Fingerprint, body []byte) (t string, err error) {
-	var solution CaptchaSolution
+	var solution Solution
 	err = json.Unmarshal([]byte(body), &solution)
 	if err != nil {
 		return
@@ -197,11 +178,6 @@ func (m *CaptchaTokenManager) GetComplexity() int {
 	return m.complexity
 }
 
-// Serve runs background tasks for the CAPTCHA manager
-func (m *CaptchaTokenManager) Serve(ctx context.Context) {
-	m.CaptchaManager.Serve(ctx)
-}
-
 // NewCaptchaTokenManager creates a new CAPTCHA token manager instance
 // Parameters:
 //   - complexity: Difficulty level for CAPTCHAs (1-3)
@@ -209,7 +185,7 @@ func (m *CaptchaTokenManager) Serve(ctx context.Context) {
 //
 // Returns:
 //   - *CaptchaTokenManager: Initialized manager with preloaded template
-func NewCaptchaTokenManager(permanentTokens []string, complexity string) *CaptchaTokenManager {
+func NewCaptchaTokenManager(ctx context.Context, permanentTokens []string, complexity string) *CaptchaTokenManager {
 	var complexityLevel int
 	switch complexity {
 	case "easy":
@@ -229,10 +205,10 @@ func NewCaptchaTokenManager(permanentTokens []string, complexity string) *Captch
 	}
 
 	tm := CaptchaTokenManager{
-		CaptchaManager:  NewClassificationCaptchaManager(complexityLevel),
+		CaptchaManager:  NewClassificationCaptchaManager(ctx, complexityLevel),
 		tokens:          make(map[string]*token),
 		permanentTokens: make(map[string]struct{}),
-		challenges:      make(map[string]*CaptchaTask),
+		challenges:      make(map[string]*Challenge),
 		template:        template.Must(template.New("captcha").Parse(string(pageContent))),
 	}
 	for i := range permanentTokens {

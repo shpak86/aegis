@@ -1,5 +1,16 @@
 # Changelog
 
+### Version 0.4.2 (October 2, 2025)
+
+#### Features 
+- Captcha generation improvements
+
+### Version 0.4.1 (October 1, 2025)
+
+#### Features 
+- Remove Accept headers from the client fingerprint.
+- Add noise to the captcha images.
+
 ### Version 0.4.0 (Septemper 29, 2025)
 
 #### Features 
