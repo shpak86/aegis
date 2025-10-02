@@ -97,7 +97,7 @@ func (c *CaptchaManager) Task() *Challenge {
 				templateIndex := rand.Intn(len(c.templates))
 				if templateIndex != challengeIdx {
 					imageKey := fmt.Sprintf("%d:%d", templateIndex, index)
-					challenge.Images[index] = c.imageBytes[imageKey] //c.templates[templateIndex].Images[index]
+					challenge.Images[index] = c.imageBytes[imageKey]
 					break
 				}
 			}

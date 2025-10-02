@@ -7,9 +7,10 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"html/template"
+	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -55,7 +56,7 @@ type CaptchaTokenManager struct {
 	challenges      map[string]*Challenge
 	cmu             sync.RWMutex
 	tmu             sync.RWMutex
-	template        *template.Template
+	parts           []string
 
 	CaptchaManager *CaptchaManager
 }
@@ -88,14 +89,29 @@ func (m *CaptchaTokenManager) GetChallenge(fp *usecase.Fingerprint) (payload []b
 	m.cmu.Lock()
 	m.challenges[fp.String] = task
 	m.cmu.Unlock()
-	var content bytes.Buffer
-	m.template.Execute(&content, PageData{
-		CaptchaId:   task.Id,
-		Description: task.Description,
-		Images:      task.Images,
-	})
+
+	content := strings.Builder{}
+	content.WriteString(m.parts[0])
+	content.WriteString(task.Description)
+	content.WriteString(m.parts[1])
+	for i := 2; i < 2+m.complexity; i++ {
+		content.WriteString(task.Images[i-2])
+		content.WriteString(m.parts[i])
+	}
+	content.WriteString(fmt.Sprintf("%d", task.Id))
+	content.WriteString(m.parts[len(m.parts)-1])
+	// content = strings.Replace(content, , task.Description, 1)
+	// for _, image := range task.Images {
+	// 	content = strings.Replace(content, "{{image}}", image, 1)
+	// }
+
+	// m.template.Execute(&content, PageData{
+	// 	CaptchaId:   task.Id,
+	// 	Description: task.Description,
+	// 	Images:      task.Images,
+	// })
 	slog.Info("Captcha challenge is prepared", "fingerprint", fp.String, "complexity", m.complexity, "id", task.Id, "images", len(task.Images), "solution", task.Solution, "description", task.Description)
-	return content.Bytes(), nil
+	return []byte(content.String()), nil
 }
 
 // GetToken validates a CAPTCHA solution and generates a new antibot token
@@ -197,20 +213,28 @@ func NewCaptchaTokenManager(ctx context.Context, permanentTokens []string, compl
 	default:
 		complexityLevel = CaptchaComplexityMedium
 	}
-
-	pageContent, err := os.ReadFile(indexPath)
-	if err != nil {
-		slog.Error("Unable to read template: " + indexPath)
-		os.Exit(1)
-	}
-
 	tm := CaptchaTokenManager{
 		CaptchaManager:  NewClassificationCaptchaManager(ctx, complexityLevel),
 		tokens:          make(map[string]*token),
 		permanentTokens: make(map[string]struct{}),
 		challenges:      make(map[string]*Challenge),
-		template:        template.Must(template.New("captcha").Parse(string(pageContent))),
+		complexity:      complexityLevel,
+		parts:           []string{},
 	}
+	var index = fmt.Sprintf("/usr/share/aegis/captcha/static/index_%s.html", complexity)
+	content, err := os.ReadFile(index)
+	if err != nil {
+		slog.Error("Unable to read template: " + indexPath)
+		os.Exit(1)
+	}
+
+	buffer := strings.Split(string(content), "{{description}}")
+	tm.parts = append(tm.parts, buffer[0])
+	buffer = strings.Split(buffer[1], "{{image}}")
+	tm.parts = append(tm.parts, buffer[:len(buffer)-1]...)
+	buffer = strings.Split(buffer[len(buffer)-1], "{{id}}")
+	tm.parts = append(tm.parts, buffer...)
+
 	for i := range permanentTokens {
 		tm.permanentTokens[permanentTokens[i]] = struct{}{}
 	}

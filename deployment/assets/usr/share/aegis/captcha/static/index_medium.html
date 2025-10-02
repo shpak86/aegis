@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAPTCHA Verification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .captcha-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .captcha-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .captcha-title {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .captcha-description {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+
+        .images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .image-item {
+            position: relative;
+            border: 3px solid transparent;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .image-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .image-item.selected {
+            border-color: #007bff;
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+        }
+
+        .image-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .image-checkbox {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .image-checkbox.checked {
+            background: #007bff;
+            border-color: #007bff;
+        }
+
+        .image-checkbox.checked::after {
+            content: '✓';
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            position: absolute;
+            top: -2px;
+            left: 3px;
+        }
+
+        .control-buttons {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 0 10px;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #continueLink {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0 10px;
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+        }
+
+        #continueLink:hover {
+            background-color: #218838;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        #continueLink:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+        }
+
+        #continueLink:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.25);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #666;
+            margin-top: 20px;
+        }
+
+        .error {
+            display: none;
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 4px;
+            margin-top: 15px;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="captcha-container">
+        <div class="captcha-header">
+            <h1 class="captcha-title">CAPTCHA Verification</h1>
+        </div>
+
+        <div class="captcha-description" id="captchaDescription">
+            {{description}}
+        </div>
+
+        <div class="images-grid" id="imagesGrid">
+            <div class="image-item" data-index="0">
+                <img src="data:image/jpeg;base64,{{image}}" alt="CAPTCHA Image 0">
+                <div class="image-checkbox"></div>
+            </div>
+
+            <div class="image-item" data-index="1">
+                <img src="data:image/jpeg;base64,{{image}}" alt="CAPTCHA Image 1">
+                <div class="image-checkbox"></div>
+            </div>
+
+            <div class="image-item" data-index="2">
+                <img src="data:image/jpeg;base64,{{image}}" alt="CAPTCHA Image 2">
+                <div class="image-checkbox"></div>
+            </div>
+
+            <div class="image-item" data-index="3">
+                <img src="data:image/jpeg;base64,{{image}}" alt="CAPTCHA Image 3">
+                <div class="image-checkbox"></div>
+            </div>
+
+            <div class="image-item" data-index="4">
+                <img src="data:image/jpeg;base64,{{image}}" alt="CAPTCHA Image 4">
+                <div class="image-checkbox"></div>
+            </div>
+
+            <div class="image-item" data-index="5">
+                <img src="data:image/jpeg;base64,{{image}}" alt="CAPTCHA Image 5">
+                <div class="image-checkbox"></div>
+            </div>
+        </div>
+        <div class="control-buttons">
+            <button class="btn btn-primary" onclick="submitSolution()" id="continueBtn">Continue</button>
+            <a href="/" id="continueLink">Continue</a>
+        </div>
+        <div class="loading" id="loadingIndicator">
+            Verifying your solution...
+        </div>
+        <div class="error" id="errorMessage">
+            Verification failed. Please try again.
+        </div>
+    </div>
+
+    <script>
+
+        const captchaId = {{id}};
+        let selectedImages = new Set();
+        function initializeCaptcha() {
+            const imageItems = document.querySelectorAll('.image-item');
+            imageItems.forEach(item => {
+                item.addEventListener('click', function () {
+                    toggleImageSelection(this);
+                });
+            });
+        }
+
+        function toggleImageSelection(imageItem) {
+            const index = parseInt(imageItem.getAttribute('data-index'));
+            const checkbox = imageItem.querySelector('.image-checkbox');
+
+            if (selectedImages.has(index)) {
+
+                selectedImages.delete(index);
+                imageItem.classList.remove('selected');
+                checkbox.classList.remove('checked');
+            } else {
+
+                selectedImages.add(index);
+                imageItem.classList.add('selected');
+                checkbox.classList.add('checked');
+            }
+            updateContinueButton();
+        }
+
+        function updateContinueButton() {
+            const continueBtn = document.getElementById('continueBtn');
+            continueBtn.disabled = selectedImages.size === 0;
+        }
+
+        function setCookie(name, value, days = 365) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = name + "=" + value + ";expires=" + expires.toUTCString() + ";path=/";
+        }
+
+        async function submitSolution() {
+            setTimeout(() => {
+                hideLoading();
+                showContinue();
+            }, 2000);
+            if (selectedImages.size === 0) {
+                showError('Please select at least one image');
+                return;
+            }
+            showLoading();
+            const solution = Array.from(selectedImages).sort((a, b) => a - b);
+            const payload = {
+                id: captchaId,
+                solution: solution
+            };
+            try {
+                const response = await fetch('/aegis/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                hideLoading();
+
+                if (response.status === 200) {
+                    const token = await response.text();
+                    setCookie('AEGIS_TOKEN', token.trim());
+                } else {
+
+                    showError('Verification failed. Please try again.');
+                }
+            } catch (error) {
+                hideLoading();
+                showError('Please try again.');
+                console.error('CAPTCHA submission error:', error);
+            }
+        }
+
+        function showLoading() {
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('continueBtn').disabled = true;
+            document.getElementById('continueBtn').style.display = 'none';
+            document.getElementById('imagesGrid').style.display = 'none';
+            document.getElementById('captchaDescription').style.display = 'none';
+            hideError();
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingIndicator').style.display = 'none';
+            document.getElementById('continueBtn').disabled = false;
+        }
+
+        function hideContinue() {
+            document.getElementById('continueLink').style.display = 'none';
+            document.getElementById('continueLink').disabled = true;
+        }
+
+        function showContinue() {
+            document.getElementById('loadingIndicator').style.display = 'none';
+            document.getElementById('continueBtn').style.display = 'none';
+            document.getElementById('imagesGrid').style.display = 'none';
+            document.getElementById('captchaDescription').style.display = 'none';
+            document.getElementById('continueLink').style.display = 'block';
+            document.getElementById('continueLink').disabled = false;
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        function handleKeyboard(event) {
+            if (event.key === 'Enter' && selectedImages.size > 0) {
+                submitSolution();
+            }
+            if (event.key === 'Escape') {
+                clearSelection();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            initializeCaptcha();
+            updateContinueButton();
+            hideContinue();
+            document.addEventListener('keydown', handleKeyboard);
+        });
+    </script>
+</body>
+
+</html>
