@@ -20,11 +20,12 @@ type ChallengeTemplate struct {
 }
 
 type Challenge struct {
-	ChallengeTemplate
-	Id         uint32 `json:"id"`
-	Complexity int    `json:"complexity,omitempty"`
-	Solution   []int
-	ts         time.Time
+	Description  string `json:"description,omitempty"`
+	Id           uint32 `json:"id"`
+	Complexity   int    `json:"complexity,omitempty"`
+	Solution     []int
+	Base64Images [][]byte
+	ts           time.Time
 }
 
 type Solution struct {
@@ -33,16 +34,16 @@ type Solution struct {
 }
 
 type Configuration struct {
-	Templates []Challenge `json:"templates"`
+	Templates []ChallengeTemplate `json:"templates"`
 }
 
 type CaptchaManager struct {
-	ctx        context.Context
-	templates  []Challenge
-	tasks      map[uint32]*Challenge
-	complexity int
-	imageBytes map[string]string
-	mu         sync.Mutex
+	ctx          context.Context
+	templates    []ChallengeTemplate
+	tasks        map[uint32]*Challenge
+	complexity   int
+	base64Images map[string]string
+	mu           sync.Mutex
 }
 
 func (c *CaptchaManager) cleanup() {
@@ -56,7 +57,7 @@ func (c *CaptchaManager) cleanup() {
 }
 
 func (c *CaptchaManager) Serve() (err error) {
-	// Cleanup procedure
+	// Cleanup and update procedures
 	cleanuupTicker := time.NewTicker(time.Second)
 	loadTicker := time.NewTicker(time.Minute)
 	for {
@@ -72,17 +73,14 @@ func (c *CaptchaManager) Serve() (err error) {
 	}
 }
 
-func (c *CaptchaManager) Task() *Challenge {
+func (c *CaptchaManager) GetChallenge() *Challenge {
 	challengeIdx := rand.Intn(len(c.templates))
 	challengeTemplate := c.templates[challengeIdx]
-
 	challenge := Challenge{
-		ChallengeTemplate: ChallengeTemplate{
-			Description: challengeTemplate.Description,
-			Images:      make([]string, c.complexity),
-		},
-		Complexity: c.complexity,
-		ts:         time.Now(),
+		Description:  challengeTemplate.Description,
+		Base64Images: make([][]byte, c.complexity),
+		Complexity:   c.complexity,
+		ts:           time.Now(),
 	}
 	shuffledIndex := rand.Perm(c.complexity)
 	challenge.Solution = slices.Clone(shuffledIndex[:c.complexity/2])
@@ -91,13 +89,13 @@ func (c *CaptchaManager) Task() *Challenge {
 		index := shuffledIndex[i]
 		if i < c.complexity/2 {
 			imageKey := fmt.Sprintf("%d:%d", challengeIdx, index)
-			challenge.Images[index] = c.imageBytes[imageKey]
+			challenge.Base64Images[index] = []byte(c.base64Images[imageKey])
 		} else {
 			for {
 				templateIndex := rand.Intn(len(c.templates))
 				if templateIndex != challengeIdx {
 					imageKey := fmt.Sprintf("%d:%d", templateIndex, index)
-					challenge.Images[index] = c.imageBytes[imageKey]
+					challenge.Base64Images[index] = []byte(c.base64Images[imageKey])
 					break
 				}
 			}
@@ -163,18 +161,18 @@ func (c *CaptchaManager) load() (err error) {
 	}
 	// Update current images
 	c.mu.Lock()
-	c.templates = configuration.Templates
-	c.imageBytes = images
 	defer c.mu.Unlock()
+	c.templates = configuration.Templates
+	c.base64Images = images
 	return
 }
 
 func NewClassificationCaptchaManager(ctx context.Context, complexity int) *CaptchaManager {
 	manager := CaptchaManager{
-		ctx:        ctx,
-		complexity: complexity,
-		tasks:      make(map[uint32]*Challenge),
-		imageBytes: make(map[string]string),
+		ctx:          ctx,
+		complexity:   complexity,
+		tasks:        make(map[uint32]*Challenge),
+		base64Images: make(map[string]string),
 	}
 	manager.load()
 	go manager.Serve()

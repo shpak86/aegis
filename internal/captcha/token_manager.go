@@ -56,7 +56,7 @@ type CaptchaTokenManager struct {
 	challenges      map[string]*Challenge
 	cmu             sync.RWMutex
 	tmu             sync.RWMutex
-	parts           []string
+	parts           [][]byte
 
 	CaptchaManager *CaptchaManager
 }
@@ -70,13 +70,6 @@ func (m *CaptchaTokenManager) ExtractToken(request *usecase.Request) (token stri
 	return
 }
 
-// PageData contains template data for rendering CAPTCHA pages
-type PageData struct {
-	CaptchaId   uint32
-	Description string
-	Images      []string
-}
-
 // GetChallenge generates a new CAPTCHA challenge for the client
 // Parameters:
 //   - fp: Client fingerprint for tracking
@@ -85,33 +78,33 @@ type PageData struct {
 //   - []byte: Rendered HTML content with base64-encoded images
 //   - error:  Non-nil if image reading fails
 func (m *CaptchaTokenManager) GetChallenge(fp *usecase.Fingerprint) (payload []byte, err error) {
-	task := m.CaptchaManager.Task()
+	task := m.CaptchaManager.GetChallenge()
 	m.cmu.Lock()
 	m.challenges[fp.String] = task
 	m.cmu.Unlock()
 
-	content := strings.Builder{}
-	content.WriteString(m.parts[0])
-	content.WriteString(task.Description)
-	content.WriteString(m.parts[1])
-	for i := 2; i < 2+m.complexity; i++ {
-		content.WriteString(task.Images[i-2])
-		content.WriteString(m.parts[i])
+	id := []byte(fmt.Sprintf("%d", task.Id))
+	size := 0
+	for i := range m.parts {
+		size += len(m.parts[i])
 	}
-	content.WriteString(fmt.Sprintf("%d", task.Id))
-	content.WriteString(m.parts[len(m.parts)-1])
-	// content = strings.Replace(content, , task.Description, 1)
-	// for _, image := range task.Images {
-	// 	content = strings.Replace(content, "{{image}}", image, 1)
-	// }
-
-	// m.template.Execute(&content, PageData{
-	// 	CaptchaId:   task.Id,
-	// 	Description: task.Description,
-	// 	Images:      task.Images,
-	// })
-	slog.Info("Captcha challenge is prepared", "fingerprint", fp.String, "complexity", m.complexity, "id", task.Id, "images", len(task.Images), "solution", task.Solution, "description", task.Description)
-	return []byte(content.String()), nil
+	size = size + len([]byte(task.Description))
+	size = size + len(id)
+	for i := range task.Base64Images {
+		size += len(task.Base64Images[i])
+	}
+	content := make([]byte, 0, size)
+	content = append(content, m.parts[0]...)
+	content = append(content, []byte(task.Description)...)
+	content = append(content, m.parts[1]...)
+	for i := 2; i < 2+m.complexity; i++ {
+		content = append(content, []byte(task.Base64Images[i-2])...)
+		content = append(content, m.parts[i]...)
+	}
+	content = append(content, id...)
+	content = append(content, m.parts[len(m.parts)-1]...)
+	slog.Info("Captcha challenge is prepared", "fingerprint", fp.String, "complexity", m.complexity, "id", task.Id, "images", len(task.Base64Images), "solution", task.Solution, "description", task.Description)
+	return content, nil
 }
 
 // GetToken validates a CAPTCHA solution and generates a new antibot token
@@ -219,8 +212,9 @@ func NewCaptchaTokenManager(ctx context.Context, permanentTokens []string, compl
 		permanentTokens: make(map[string]struct{}),
 		challenges:      make(map[string]*Challenge),
 		complexity:      complexityLevel,
-		parts:           []string{},
+		parts:           [][]byte{},
 	}
+
 	var index = fmt.Sprintf("/usr/share/aegis/captcha/static/index_%s.html", complexity)
 	content, err := os.ReadFile(index)
 	if err != nil {
@@ -229,11 +223,13 @@ func NewCaptchaTokenManager(ctx context.Context, permanentTokens []string, compl
 	}
 
 	buffer := strings.Split(string(content), "{{description}}")
-	tm.parts = append(tm.parts, buffer[0])
+	tm.parts = append(tm.parts, []byte(buffer[0]))
 	buffer = strings.Split(buffer[1], "{{image}}")
-	tm.parts = append(tm.parts, buffer[:len(buffer)-1]...)
+	for i := 0; i < len(buffer)-1; i++ {
+		tm.parts = append(tm.parts, []byte(buffer[i]))
+	}
 	buffer = strings.Split(buffer[len(buffer)-1], "{{id}}")
-	tm.parts = append(tm.parts, buffer...)
+	tm.parts = append(tm.parts, []byte(buffer[0]), []byte(buffer[1]))
 
 	for i := range permanentTokens {
 		tm.permanentTokens[permanentTokens[i]] = struct{}{}

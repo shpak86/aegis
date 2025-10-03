@@ -1,5 +1,10 @@
 # Changelog
 
+### Version 0.4.3 (October 3, 2025)
+
+#### Features 
+- Captcha challenge works faster
+
 ### Version 0.4.2 (October 2, 2025)
 
 #### Features 
